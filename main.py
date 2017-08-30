@@ -8,6 +8,7 @@ from time import time, strftime, gmtime
 import os.path
 import sys
 import sqlite3
+import logging
 
 class CompetitorModel(object):
     def __init__(self):
@@ -19,9 +20,9 @@ class CompetitorModel(object):
         self._db.cursor().execute('''
             CREATE TABLE competitors(
                 id INTEGER PRIMARY KEY,
-                name TEXT DEFAULT "nn",
+                name TEXT DEFAULT "N.N.",
                 bib TEXT DEFAULT "0",
-                finish_time TEXT)
+                finish_time REAL)
         ''')
         self._db.commit()
 
@@ -37,12 +38,20 @@ class CompetitorModel(object):
 
     def get_summary(self):
         list = self._db.cursor().execute(
-            "SELECT finish_time, bib, name, id from competitors").fetchall()
-        r = []
-        for finish, bib, name, id in list:
-            r.append([{finish, bib, name}, id])
+            "SELECT finish_time, bib, name, id from competitors ORDER BY finish_time").fetchall()
+        rows = []
+        for x in list:
+            logging.info(x['finish_time'])
+            option = ([
+                strftime('%H:%M:%S', gmtime(x['finish_time'])),
+                x['bib'],
+                x['name']],
+                x['id'])
 
-        return r
+            rows.append(option)
+
+        #logging.info(r)
+        return rows
 
     def get_competitor(self, competitor_id):
         return self._db.cursor().execute(
@@ -78,6 +87,8 @@ class ListView(Frame):
                                        hover_focus=True,
                                        title="Competitor List")
         # Save off the model that accesses the competitors database.
+        #logging.basicConfig(filename='example.log',level=logging.INFO)
+
         self._model = model
         self._start_time = None
         self._last_frame = 0
@@ -90,7 +101,6 @@ class ListView(Frame):
             name="competitors",
             on_change=self._on_pick)
         self._edit_button = Button("Edit", self._edit)
-        self._delete_button = Button("Start", self._start)
         layout = Layout([100], fill_frame=True)
         self.add_layout(layout)
         self._time_label = Text("Time: ", '00:00:00')
@@ -109,7 +119,6 @@ class ListView(Frame):
 
     def _on_pick(self):
         self._edit_button.disabled = self._list_view.value is None
-        #self._delete_button.disabled = self._list_view.value is None
 
     def _reload_list(self):
         self._list_view.options = self._model.get_summary()
@@ -117,12 +126,10 @@ class ListView(Frame):
 
     def _add(self):
         self._model.current_id = None
-        details = {'finish_time': str(time() - self._start_time)}
+        details = {'finish_time': time() - self._start_time}
 
         self._model.update_current_competitor(details)
         self._reload_list()
-        #self._model.save()
-        #raise NextScene("Edit competitor")
 
     def _edit(self):
         self.save()
