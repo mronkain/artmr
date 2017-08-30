@@ -5,6 +5,7 @@ from asciimatics.screen import Screen
 from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
 from time import time, strftime, gmtime
 
+import os.path
 import sys
 import sqlite3
 
@@ -80,7 +81,7 @@ class ListView(Frame):
         self._model = model
         self._start_time = None
         self._last_frame = 0
-
+        self.read_state()
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
@@ -136,6 +137,7 @@ class ListView(Frame):
     def _start(self):
         if self._start_time == None:
             self._start_time = time()
+            self.save_state()
 
         self._time_label.value = strftime('%H:%M:%S', gmtime(time() - self._start_time))
 
@@ -145,6 +147,17 @@ class ListView(Frame):
                 self._time_label.value = strftime('%H:%M:%S', gmtime(time() - self._start_time))
 
         super(ListView, self)._update(frame_no)
+
+    def read_state(self):
+        if os.path.isfile('state.dat'):
+            f = open('state.dat', 'r')
+            self._start_time = float(f.read())
+            f.close()
+
+    def save_state(self):
+        f = open('state.dat', 'w')
+        f.write(str(self._start_time))
+        f.close()
 
     @property
     def frame_update_count(self):
