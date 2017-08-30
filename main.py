@@ -238,6 +238,10 @@ def demo(screen, scene):
 
     screen.play(scenes, stop_on_resize=True, start_scene=scene)
 
+if len(sys.argv) > 1 and sys.argv[1] == '--reset':
+    os.remove("state.dat")
+    os.remove("competitors.db")
+
 competitors = CompetitorModel()
 last_scene = None
 while True:
