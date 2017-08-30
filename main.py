@@ -3,6 +3,8 @@ from asciimatics.widgets import Frame, MultiColumnListBox, Layout, Divider, Text
 from asciimatics.scene import Scene
 from asciimatics.screen import Screen
 from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
+from asciimatics.event import KeyboardEvent
+
 from time import time, strftime, gmtime
 
 import os.path
@@ -81,8 +83,8 @@ class CompetitorModel(object):
 class ListView(Frame):
     def __init__(self, screen, model):
         super(ListView, self).__init__(screen,
-                                       screen.height * 2 // 3,
-                                       screen.width * 2 // 3,
+                                       screen.height,
+                                       screen.width,
                                        on_load=self._reload_list,
                                        hover_focus=True,
                                        title="Competitor List")
@@ -102,6 +104,7 @@ class ListView(Frame):
             on_change=self._on_pick)
         self._edit_button = Button("Edit", self._edit)
         layout = Layout([100], fill_frame=True)
+
         self.add_layout(layout)
         self._time_label = Text("Time: ", '00:00:00')
         self._time_label.disabled = True
@@ -114,8 +117,21 @@ class ListView(Frame):
         layout2.add_widget(Button("Split", self._add), 1)
         layout2.add_widget(self._edit_button, 2)
         layout2.add_widget(Button("Quit", self._quit), 3)
+
         self.fix()
         self._on_pick()
+
+    def process_event(self, event):
+
+        if isinstance(event, KeyboardEvent):
+            key = event.key_code
+
+            if key == 115 or key == 32:
+                self._add()
+            else:
+                super(ListView, self).process_event(event)
+        else:
+            super(ListView, self).process_event(event)
 
     def _on_pick(self):
         self._edit_button.disabled = self._list_view.value is None
@@ -225,7 +241,7 @@ competitors = CompetitorModel()
 last_scene = None
 while True:
     try:
-        Screen.wrapper(demo, catch_interrupt=True, arguments=[last_scene])
+        Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene])
         sys.exit(0)
     except ResizeScreenError as e:
         last_scene = e.scene
