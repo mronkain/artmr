@@ -43,16 +43,17 @@ class CompetitorModel(object):
             "SELECT finish_time, bib, name, id from competitors ORDER BY finish_time").fetchall()
         rows = []
         for x in list:
-            logging.info(x['finish_time'])
-            option = ([
-                strftime('%H:%M:%S', gmtime(x['finish_time'])),
-                x['bib'],
-                x['name']],
-                x['id'])
+            option = (
+                [
+                    strftime('%H:%M:%S', gmtime(x['finish_time'])),
+                    x['bib'],
+                    x['name']
+                ],
+                x['id']
+            )
 
             rows.append(option)
 
-        #logging.info(r)
         return rows
 
     def get_competitor(self, competitor_id):
