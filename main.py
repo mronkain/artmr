@@ -15,12 +15,12 @@ import logging
 class CompetitorModel(object):
     def __init__(self):
         # Create a database in RAM
-        self._db = sqlite3.connect(':memory:')
+        self._db = sqlite3.connect('competitors.db')
         self._db.row_factory = sqlite3.Row
 
         # Create the basic competitor table.
         self._db.cursor().execute('''
-            CREATE TABLE competitors(
+            CREATE TABLE if not exists competitors(
                 id INTEGER PRIMARY KEY,
                 name TEXT DEFAULT "N.N.",
                 bib TEXT DEFAULT "0",
