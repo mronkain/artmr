@@ -1,13 +1,13 @@
 # Timer2
 
-Timer2 is a simple text-only, filly offline timing application designed for
+Timer2 is a simple text-only, fully off-line timing application designed for
 small-scale manual competition timing. Heavily based (i.e. shamelessly copied)
 on asciimatics contact list demo and inspired by classic DOS utilities.
 
 ## Usage
 
-Start the race with the Start (`space` or `s`) button and add a new split/finish time with Split
-(`space` or `s`). Add a competitor bib number with Edit (`e`).
+Start the race with the Start (`space` or `s`) button and add a new split/finish
+time with Split (`space` or `s`). Add a competitor bib number with Edit (`e`).
 
 Start time and splits are saved on disk so you can quit the application and data
 is kept.
