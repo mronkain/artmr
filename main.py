@@ -6,7 +6,7 @@ from asciimatics.screen import Screen
 from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
 from asciimatics.event import KeyboardEvent
 
-from time import time, strftime, gmtime
+from time import time, strftime, gmtime, localtime
 
 import os.path
 import sys
@@ -82,6 +82,10 @@ class CompetitorModel(object):
             DELETE FROM competitors WHERE id=:id''', {"id": competitor_id})
         self._db.commit()
 
+    def get_export(self):
+        list = self._db.cursor().execute(
+                "SELECT finish_time, bib from competitors ORDER BY finish_time").fetchall()
+        return list
 
 class ListView(Frame):
     def __init__(self, screen, model):
@@ -140,6 +144,9 @@ class ListView(Frame):
                 self._add()
             elif key == ord('e'):
                 self._edit()
+            elif key == ord('x'):
+                self._export()
+
             else:
                 super(ListView, self).process_event(event)
         else:
@@ -198,6 +205,26 @@ class ListView(Frame):
         f = open('state.dat', 'w')
         f.write(str(self._start_time))
         f.close()
+
+    def _export(self):
+        list = self._model.get_export()
+
+        with open('export.csv', 'wb') as f:
+            writer = csv.writer(f)
+
+            writer.writerow(['rank', 'bib', '(((Start time)))',
+                '00:00:00',
+                strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._start_time))])
+            rank = 1
+            for l in list:
+                writer.writerow([
+                    rank,
+                    l['bib'],
+                    get_name(l['bib']),
+                    strftime('%H:%M:%S', gmtime(l['finish_time'])),
+                    strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._start_time + l['finish_time']))
+                ])
+                rank += 1
 
     @property
     def frame_update_count(self):
