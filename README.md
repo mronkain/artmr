@@ -22,7 +22,8 @@ Tested with python 2.7. Requires asciimatics library, install with `pip install 
 
 
 ## TODO
-- make a competition model that start time can be saved to database
+- make a competition model that start time can be saved to database and
+so you don't need to delete old data to begin a new competition
 - read names better into database
 - data export to csv
 - automatic data export/sync to other services
