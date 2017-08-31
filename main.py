@@ -12,6 +12,7 @@ import os.path
 import sys
 import sqlite3
 import logging
+import csv
 
 class CompetitorModel(object):
     def __init__(self):
@@ -48,7 +49,7 @@ class CompetitorModel(object):
                 [
                     strftime('%H:%M:%S', gmtime(x['finish_time'])),
                     x['bib'],
-                    x['name']
+                    get_name(x['bib'])
                 ],
                 x['id']
             )
@@ -222,7 +223,7 @@ class CompetitorView(Frame):
         # Create the form for displaying the list of competitors.
         layout = Layout([100], fill_frame=True)
         self.add_layout(layout)
-        layout.add_widget(Text("Name:", "name"))
+        #layout.add_widget(Text("Name:", "name"))
         layout.add_widget(Text("Bib:", "bib"))
         layout2 = Layout([1, 1, 1, 1])
         self.add_layout(layout2)
@@ -264,9 +265,23 @@ def demo(screen, scene):
 
     screen.play(scenes, stop_on_resize=True, start_scene=scene)
 
-if len(sys.argv) > 1 and sys.argv[1] == '--reset':
-    os.remove("state.dat")
-    os.remove("competitors.db")
+def get_name(bib):
+    if names.has_key(bib):
+        return names[bib]
+    else:
+        return ""
+
+if len(sys.argv) > 1:
+    if sys.argv[1] == '--reset':
+        os.remove("state.dat")
+        os.remove("competitors.db")
+
+names = {}
+if os.path.isfile('competitors.txt'):
+    with open('competitors.txt','rb') as namesin:
+        tsvin = csv.reader(namesin, delimiter=',')
+        for row in tsvin:
+            names[row[0]] = row[1]
 
 competitors = CompetitorModel()
 last_scene = None
