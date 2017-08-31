@@ -11,10 +11,11 @@ time with Split (`space` or `s`). Add a competitor bib number with Edit (`e`).
 
 Start time and splits are saved on disk so you can quit the application and data
 is kept. Times are kept only in whole seconds, more accuracy does not make much
-sense in manual timing. 
+sense in manual timing.
 
-Competitors can be added in advance from `competitors.txt`, format is `bib,name`,
-one per line.
+Competitor names can be added in advance from `competitors.txt`, format is `bib,name`,
+one per line. This can be edited while the timer is running, application restart
+is needed to refresh the names.
 
 Data can be export to a csv file with `x`. This creates `export.csv` file in
 the current directory in format `rank,bib,name,elapsed time,real time`. Make sure
