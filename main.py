@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from asciimatics.widgets import Frame, MultiColumnListBox, Layout, Divider, Text, \
     Button, TextBox, Widget, Label
 from asciimatics.scene import Scene
@@ -22,8 +23,8 @@ class CompetitorModel(object):
         self._db.cursor().execute('''
             CREATE TABLE if not exists competitors(
                 id INTEGER PRIMARY KEY,
-                name TEXT DEFAULT "N.N.",
-                bib TEXT DEFAULT "0",
+                name TEXT DEFAULT "",
+                bib TEXT DEFAULT "",
                 finish_time REAL)
         ''')
         self._db.commit()
@@ -90,7 +91,7 @@ class ListView(Frame):
                                        hover_focus=True,
                                        title="Competitor List")
         # Save off the model that accesses the competitors database.
-        #logging.basicConfig(filename='example.log',level=logging.INFO)
+        # logging.basicConfig(filename='example.log',level=logging.INFO)
 
         self._model = model
         self._start_time = None
@@ -102,8 +103,16 @@ class ListView(Frame):
             ['30%','30%', '30%'],
             model.get_summary(),
             name="competitors",
-            on_change=self._on_pick)
+            on_change=self._on_pick,
+            titles=['Finishing time', 'Bib', 'Name'])
         self._edit_button = Button("Edit", self._edit)
+        self._start_button = Button("Start", self._start)
+        self._quit_button = Button("Quit", self._quit)
+        self._split_button = Button("Split", self._add)
+
+        self._start_button.disabled = (self._start_time != None)
+        self._split_button.disabled = (self._start_time == None)
+
         layout = Layout([100], fill_frame=True)
 
         self.add_layout(layout)
@@ -114,21 +123,22 @@ class ListView(Frame):
         layout.add_widget(Divider())
         layout2 = Layout([1, 1, 1, 1])
         self.add_layout(layout2)
-        layout2.add_widget(Button("Start", self._start), 0)
-        layout2.add_widget(Button("Split", self._add), 1)
+        layout2.add_widget(self._start_button, 0)
+        layout2.add_widget(self._split_button, 1)
         layout2.add_widget(self._edit_button, 2)
-        layout2.add_widget(Button("Quit", self._quit), 3)
+        layout2.add_widget(self._quit_button, 3)
 
         self.fix()
         self._on_pick()
 
     def process_event(self, event):
-
         if isinstance(event, KeyboardEvent):
             key = event.key_code
 
-            if key == 115 or key == 32:
+            if key == ord('s') or key == 32:
                 self._add()
+            elif key == ord('e'):
+                self._edit()
             else:
                 super(ListView, self).process_event(event)
         else:
@@ -142,6 +152,10 @@ class ListView(Frame):
         self._model.current_id = None
 
     def _add(self):
+        if self._start_time == None:
+            self._start()
+            return
+
         self._model.current_id = None
         details = {'finish_time': time() - self._start_time}
 
@@ -163,7 +177,8 @@ class ListView(Frame):
             self._start_time = time()
             self.save_state()
 
-        self._time_label.value = strftime('%H:%M:%S', gmtime(time() - self._start_time))
+        self._start_button.disabled = True
+        self._split_button.disabled = False
 
     def _update(self, frame_no):
         if frame_no - self._last_frame >= self.frame_update_count or self._last_frame == 0:
@@ -224,6 +239,17 @@ class CompetitorView(Frame):
         self.save()
         self._model.update_current_competitor(self.data)
         raise NextScene("Main")
+
+    def process_event(self, event):
+        if isinstance(event, KeyboardEvent):
+            key = event.key_code
+            if key == 10:
+                self._ok()
+            else:
+                super(CompetitorView, self).process_event(event)
+        else:
+            super(CompetitorView, self).process_event(event)
+
 
     @staticmethod
     def _cancel():
