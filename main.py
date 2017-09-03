@@ -60,7 +60,7 @@ class CompetitorModel(object):
 
     def get_competitor(self, competitor_id):
         return self._db.cursor().execute(
-            "SELECT * from competitors where id=?", str(competitor_id)).fetchone()
+            "SELECT * from competitors where id=?", [str(competitor_id)]).fetchone()
 
     def get_current_competitor(self):
         if self.current_id is None:
@@ -220,7 +220,7 @@ class ListView(Frame):
                 writer.writerow([
                     rank,
                     l['bib'],
-                    get_name(l['bib']),
+                    get_name(l['bib']).encode('utf-8'),
                     strftime('%H:%M:%S', gmtime(l['finish_time'])),
                     strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._start_time + l['finish_time']))
                 ])
@@ -298,6 +298,21 @@ def get_name(bib):
     else:
         return ""
 
+def unicode_csv_writer(utf8_data, **kwargs):
+    # csv.py doesn't do Unicode; encode temporarily as UTF-8:
+    csv_reader = csv.reader(utf8_data, **kwargs)
+
+    for row in csv_reader:
+        yield [unicode(cell, 'utf-8') for cell in row]
+
+
+def unicode_csv_reader(utf8_data, **kwargs):
+    # csv.py doesn't do Unicode; encode temporarily as UTF-8:
+    csv_reader = csv.reader(utf8_data, **kwargs)
+
+    for row in csv_reader:
+        yield [unicode(cell, 'utf-8') for cell in row]
+
 if len(sys.argv) > 1:
     if sys.argv[1] == '--reset':
         os.remove("state.dat")
@@ -305,10 +320,9 @@ if len(sys.argv) > 1:
 
 names = {}
 if os.path.isfile('competitors.txt'):
-    with open('competitors.txt','rb') as namesin:
-        tsvin = csv.reader(namesin, delimiter=',')
-        for row in tsvin:
-            names[row[0]] = row[1]
+    tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
+    for row in tsvin:
+        names[row[0]] = row[1]
 
 competitors = CompetitorModel()
 last_scene = None
