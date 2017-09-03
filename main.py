@@ -298,14 +298,6 @@ def get_name(bib):
     else:
         return ""
 
-def unicode_csv_writer(utf8_data, **kwargs):
-    # csv.py doesn't do Unicode; encode temporarily as UTF-8:
-    csv_reader = csv.reader(utf8_data, **kwargs)
-
-    for row in csv_reader:
-        yield [unicode(cell, 'utf-8') for cell in row]
-
-
 def unicode_csv_reader(utf8_data, **kwargs):
     # csv.py doesn't do Unicode; encode temporarily as UTF-8:
     csv_reader = csv.reader(utf8_data, **kwargs)
