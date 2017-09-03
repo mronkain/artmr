@@ -14,6 +14,8 @@ import sqlite3
 import logging
 import csv
 
+version = '0.3'
+
 class CompetitorModel(object):
     def __init__(self):
         # Create a database in RAM
@@ -94,7 +96,7 @@ class ListView(Frame):
                                        screen.width,
                                        on_load=self._reload_list,
                                        hover_focus=True,
-                                       title="Competitor List")
+                                       title="TIMER2 v" + version)
         # Save off the model that accesses the competitors database.
         # logging.basicConfig(filename='example.log',level=logging.INFO)
 
@@ -121,8 +123,10 @@ class ListView(Frame):
         layout = Layout([100], fill_frame=True)
 
         self.add_layout(layout)
-        self._time_label = Text("Time: ", '00:00:00')
+        self._time_label = Text("Time:")
+        self._time_label.value = "NOT STARTED"
         self._time_label.disabled = True
+
         layout.add_widget(self._time_label)
         layout.add_widget(self._list_view)
         layout.add_widget(Divider())
@@ -305,10 +309,16 @@ def unicode_csv_reader(utf8_data, **kwargs):
     for row in csv_reader:
         yield [unicode(cell, 'utf-8') for cell in row]
 
-if len(sys.argv) > 1:
-    if sys.argv[1] == '--reset':
-        os.remove("state.dat")
-        os.remove("competitors.db")
+encoding = sys.getfilesystemencoding()
+argv = [unicode(x, encoding, 'ignore') for x in sys.argv[1:]]
+
+while argv:
+    arg = argv.pop()
+    if arg == '--reset':
+        confirm = raw_input("Delete existing competition? All data will removed. [y/N]")
+        if confirm == 'y':
+            os.remove("state.dat") if os.path.exists("state.dat") else None
+            os.remove("competitors.db") if os.path.exists("competitors.db") else None
 
 names = {}
 if os.path.isfile('competitors.txt'):
