@@ -62,7 +62,7 @@ class CompetitorModel(object):
 
     def get_competitor(self, competitor_id):
         return self._db.cursor().execute(
-            "SELECT * from competitors where id=?", [str(competitor_id)]).fetchone()
+            "SELECT * from competitors WHERE id=:id", {"id": competitor_id}).fetchone()
 
     def get_current_competitor(self):
         if self.current_id is None:
