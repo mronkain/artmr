@@ -8,89 +8,95 @@ from asciimatics.event import KeyboardEvent
 
 from time import time, strftime, gmtime, localtime
 
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import sessionmaker, relationship
+
 import os.path
 import sys
-import sqlite3
 import logging
 import csv
 
-version = '0.3'
+version = '0.4'
 
-class CompetitorModel(object):
+class CompetitionModel(Base):
+    __tablename__ = 'competitions'
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    place = Column(String)
+    planned_start_time = Column(DateTime)
+    start_time = Column(DateTime)
+    finish_time = Column(DateTime)
+    notes = Column(String)
+
+    def __init__(self):
+        # Create the basic competitor table.
+
+class ParticipationModel(Base)
+    __tablename__ = 'participations'
+    id = Column(Integer, primary_key=True)
+    competitor_id = Column(Integer, ForeignKey('competitors.id'))
+    competition_id = Column(Integer, ForeignKey('competition.id'))
+    number = Column(String)
+    started = Column(Boolean, default=False)
+    relationship("competitor", back_populates="participations")
+    relationship("competion", back_populates="participations")
+
+class SplitModel(Base)
+    __tablename__ = 'splits'
+    id = Column(Integer, primary_key=True)
+    competitor_id = Column(Integer, ForeignKey('competitors.id'))
+    competition_id = Column(Integer, ForeignKey('competition.id'))
+    split_info = Column(String, default="Finish") # lap
+    time = Column(DateTime)
+    relationship("competitor", back_populates="splits")
+    relationship("competion", back_populates="splits")
+
+class CompetitorModel(Base):
+    __tablename__ = 'competitors'
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+    contact = Column(String)
+
     def __init__(self):
         # Create a database in RAM
-        self._db = sqlite3.connect('competitors.db')
-        self._db.row_factory = sqlite3.Row
-
-        # Create the basic competitor table.
-        self._db.cursor().execute('''
-            CREATE TABLE if not exists competitors(
-                id INTEGER PRIMARY KEY,
-                name TEXT DEFAULT "",
-                bib TEXT DEFAULT "",
-                finish_time REAL)
-        ''')
-        self._db.commit()
-
         # Current competitor when editing.
         self.current_id = None
 
     def add(self, competitor):
-        self._db.cursor().execute('''
-            INSERT INTO competitors(finish_time)
-            VALUES(:finish_time)''',
-                                  competitor)
-        self._db.commit()
-
-    def get_summary(self):
-        list = self._db.cursor().execute(
-            "SELECT finish_time, bib, name, id from competitors ORDER BY finish_time").fetchall()
-        rows = []
-        for x in list:
-            option = (
-                [
-                    strftime('%H:%M:%S', gmtime(x['finish_time'])),
-                    x['bib'],
-                    get_name(x['bib'])
-                ],
-                x['id']
-            )
-
-            rows.append(option)
-
-        return rows
+        pass
 
     def get_competitor(self, competitor_id):
-        return self._db.cursor().execute(
-            "SELECT * from competitors WHERE id=:id", {"id": competitor_id}).fetchone()
+        pass
 
     def get_current_competitor(self):
-        if self.current_id is None:
-            return {}
-        else:
-            return self.get_competitor(self.current_id)
-
+        pass
     def update_current_competitor(self, details):
-        if self.current_id is None:
-            self.add(details)
-        else:
-            self._db.cursor().execute('''
-                UPDATE competitors SET name=:name, bib=:bib WHERE id=:id''',
-                                      details)
-            self._db.commit()
+        pass
 
     def delete_competitor(self, competitor_id):
-        self._db.cursor().execute('''
-            DELETE FROM competitors WHERE id=:id''', {"id": competitor_id})
-        self._db.commit()
+        pass
 
     def get_export(self):
-        list = self._db.cursor().execute(
-                "SELECT finish_time, bib from competitors ORDER BY finish_time").fetchall()
-        return list
+        return []
 
-class ListView(Frame):
-    def __init__(self, screen, model):
+# global state singleton to keep track of what is being shown / edited
+class StateModel(object):
+    def __init__(session):
+        self._session = session
+        self._current_competition = None
+        self._current_competitor = None
+
+    def get_current_competition(self):
+        pass
+
+    def get_current_competitor(self):
+        pass
+
+
+class CompetitorListView(Frame):
+    def __init__(self, screen, session, state):
         super(ListView, self).__init__(screen,
                                        screen.height,
                                        screen.width,
@@ -100,15 +106,15 @@ class ListView(Frame):
         # Save off the model that accesses the competitors database.
         # logging.basicConfig(filename='example.log',level=logging.INFO)
 
-        self._model = model
+        self._state = state
+        self._session = session
         self._start_time = None
         self._last_frame = 0
-        self.read_state()
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
             ['30%','30%', '30%'],
-            model.get_summary(),
+            self._get_summary(),
             name="competitors",
             on_change=self._on_pick,
             titles=['Finishing time', 'Bib', 'Name'])
@@ -156,38 +162,30 @@ class ListView(Frame):
         else:
             super(ListView, self).process_event(event)
 
+
+    def _get_summary(self):
+        pass
+
     def _on_pick(self):
         self._edit_button.disabled = self._list_view.value is None
 
     def _reload_list(self):
-        self._list_view.options = self._model.get_summary()
-        self._model.current_id = None
+        self._list_view.options = self._get_summary()
 
     def _add(self):
-        if self._start_time == None:
-            self._start()
-            return
-
-        self._model.current_id = None
-        details = {'finish_time': time() - self._start_time}
-
-        self._model.update_current_competitor(details)
         self._reload_list()
 
     def _edit(self):
         self.save()
-        self._model.current_id = self.data["competitors"]
         raise NextScene("Edit competitor")
 
     def _delete(self):
         self.save()
-        self._model.delete_competitor(self.data["competitors"])
         self._reload_list()
 
     def _start(self):
         if self._start_time == None:
             self._start_time = time()
-            self.save_state()
 
         self._start_button.disabled = True
         self._split_button.disabled = False
@@ -199,19 +197,11 @@ class ListView(Frame):
 
         super(ListView, self)._update(frame_no)
 
-    def read_state(self):
-        if os.path.isfile('state.dat'):
-            f = open('state.dat', 'r')
-            self._start_time = float(f.read())
-            f.close()
-
-    def save_state(self):
-        f = open('state.dat', 'w')
-        f.write(str(self._start_time))
-        f.close()
+    def _get_export_data(self):
+        pass
 
     def _export(self):
-        list = self._model.get_export()
+        list = self._get_export_data()
 
         with open('export.csv', 'wb') as f:
             writer = csv.writer(f)
@@ -241,7 +231,7 @@ class ListView(Frame):
 
 
 class CompetitorView(Frame):
-    def __init__(self, screen, model):
+    def __init__(self, screen, session, competition, competitor):
         super(CompetitorView, self).__init__(screen,
                                           screen.height * 2 // 3,
                                           screen.width * 2 // 3,
@@ -249,7 +239,7 @@ class CompetitorView(Frame):
                                           title="Competitor Details",
                                           reduce_cpu=True)
         # Save off the model that accesses the competitors database.
-        self._model = model
+        # self._model = model
 
         # Create the form for displaying the list of competitors.
         layout = Layout([100], fill_frame=True)
@@ -265,11 +255,11 @@ class CompetitorView(Frame):
     def reset(self):
         # Do standard reset to clear out form, then populate with new data.
         super(CompetitorView, self).reset()
-        self.data = self._model.get_current_competitor()
+        # self.data = self._model.get_current_competitor()
 
     def _ok(self):
         self.save()
-        self._model.update_current_competitor(self.data)
+        # self._model.update_current_competitor(self.data)
         raise NextScene("Main")
 
     def process_event(self, event):
@@ -290,17 +280,16 @@ class CompetitorView(Frame):
 
 def demo(screen, scene):
     scenes = [
-        Scene([ListView(screen, competitors)], -1, name="Main"),
+        Scene([CompetitorListView(screen, competitors)], -1, name="Main"),
         Scene([CompetitorView(screen, competitors)], -1, name="Edit competitor")
+        # CompetitionListView
+        # CompetitionView
+        # CompetitionStartListView
+        # PopUpMenuListView
+        # Scene([])
     ]
 
     screen.play(scenes, stop_on_resize=True, start_scene=scene)
-
-def get_name(bib):
-    if names.has_key(bib):
-        return names[bib]
-    else:
-        return ""
 
 def unicode_csv_reader(utf8_data, **kwargs):
     # csv.py doesn't do Unicode; encode temporarily as UTF-8:
@@ -320,13 +309,15 @@ while argv:
             os.remove("state.dat") if os.path.exists("state.dat") else None
             os.remove("competitors.db") if os.path.exists("competitors.db") else None
 
-names = {}
-if os.path.isfile('competitors.txt'):
-    tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
-    for row in tsvin:
-        names[row[0]] = row[1]
+#if os.path.isfile('competitors.txt'):
+#    tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
+#    for row in tsvin:
+#        names[row[0]] = row[1]
 
-competitors = CompetitorModel()
+engine = create_engine('sqlite:///:memory:', echo=True)
+Base = declarative_base()
+Session = sessionmaker(bind=engine)
+
 last_scene = None
 while True:
     try:
