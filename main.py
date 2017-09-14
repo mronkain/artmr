@@ -17,10 +17,12 @@ import os.path
 import sys
 import logging
 import csv
+from random import randrange
 
 version = '0.4'
+Base = declarative_base()
 
-class CompetitionModel(Base):
+class Competition(Base):
     __tablename__ = 'competitions'
     id = Column(Integer, primary_key=True)
     name = Column(String)
@@ -29,95 +31,96 @@ class CompetitionModel(Base):
     start_time = Column(DateTime)
     finish_time = Column(DateTime)
     notes = Column(String)
+    competitors = relationship("Participation", back_populates="competition")
+    splits = relationship("Split", back_populates="competition")
 
-    def __init__(self):
-        # Create the basic competitor table.
-
-class ParticipationModel(Base)
-    __tablename__ = 'participations'
-    id = Column(Integer, primary_key=True)
-    competitor_id = Column(Integer, ForeignKey('competitors.id'))
-    competition_id = Column(Integer, ForeignKey('competition.id'))
-    number = Column(String)
-    started = Column(Boolean, default=False)
-    relationship("competitor", back_populates="participations")
-    relationship("competion", back_populates="participations")
-
-class SplitModel(Base)
-    __tablename__ = 'splits'
-    id = Column(Integer, primary_key=True)
-    competitor_id = Column(Integer, ForeignKey('competitors.id'))
-    competition_id = Column(Integer, ForeignKey('competition.id'))
-    split_info = Column(String, default="Finish") # lap
-    time = Column(DateTime)
-    relationship("competitor", back_populates="splits")
-    relationship("competion", back_populates="splits")
-
-class CompetitorModel(Base):
+class Competitor(Base):
     __tablename__ = 'competitors'
     id = Column(Integer, primary_key=True)
     name = Column(String)
     contact = Column(String)
+    competitions = relationship("Participation", back_populates="competitor")
+    splits = relationship("Split", back_populates="competitor")
 
-    def __init__(self):
-        # Create a database in RAM
-        # Current competitor when editing.
-        self.current_id = None
+class Participation(Base):
+    __tablename__ = 'participations'
+    id = Column(Integer, primary_key=True)
+    competitor_id = Column(Integer, ForeignKey('competitors.id'))
+    competition_id = Column(Integer, ForeignKey('competitions.id'))
+    number = Column(String)
+    started = Column(Boolean, default=False)
+    competitor = relationship("Competitor", back_populates="competitions")
+    competition = relationship("Competition", back_populates="competitors")
 
-    def add(self, competitor):
-        pass
-
-    def get_competitor(self, competitor_id):
-        pass
-
-    def get_current_competitor(self):
-        pass
-    def update_current_competitor(self, details):
-        pass
-
-    def delete_competitor(self, competitor_id):
-        pass
-
-    def get_export(self):
-        return []
+class Split(Base):
+    __tablename__ = 'splits'
+    id = Column(Integer, primary_key=True)
+    competitor_id = Column(Integer, ForeignKey('competitors.id'))
+    competition_id = Column(Integer, ForeignKey('competitions.id'))
+    split_info = Column(String, default="Finish") # lap
+    time = Column(DateTime)
+    competitor = relationship("Competitor", back_populates="splits")
+    competition = relationship("Competition", back_populates="splits")
 
 # global state singleton to keep track of what is being shown / edited
-class StateModel(object):
-    def __init__(session):
+class StateController(object):
+    def __init__(self, session):
         self._session = session
         self._current_competition = None
         self._current_competitor = None
 
     def get_current_competition(self):
-        pass
+        return self._current_competition
 
     def get_current_competitor(self):
+        return self._current_competitor
+
+    def set_current_competition(self, name):
+        comp = Competition(name=name, place="somewhere")
+        self._session.add(comp)
+        self._session.commit()
+        self._current_competition = comp
+
+    def set_current_competitor(self):
         pass
+
+    def add_competitor(self, competitor, number):
+        c = Competitor(name=competitor)
+        p = Participation(number=number)
+        p.competitor = c
+        self._current_competition.competitors.append(p)
+        self._session.commit()
+
+    def add_split(self, time):
+        pass
+
+    def change_number(self, split_id):
+        pass
+
 
 
 class CompetitorListView(Frame):
-    def __init__(self, screen, session, state):
-        super(ListView, self).__init__(screen,
+    def __init__(self, screen, controller):
+        super(CompetitorListView, self).__init__(screen,
                                        screen.height,
                                        screen.width,
                                        on_load=self._reload_list,
                                        hover_focus=True,
-                                       title="TIMER2 v" + version)
+                                       title="TIMER2 v" + version + " " + controller.get_current_competition().name)
         # Save off the model that accesses the competitors database.
         # logging.basicConfig(filename='example.log',level=logging.INFO)
 
-        self._state = state
-        self._session = session
+        self._controller = controller
         self._start_time = None
         self._last_frame = 0
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
-            ['30%','30%', '30%'],
+            ['5%', '30%','25%', '30%'],
             self._get_summary(),
             name="competitors",
             on_change=self._on_pick,
-            titles=['Finishing time', 'Bib', 'Name'])
+            titles=['Rank', 'Finishing time', 'Number', 'Name'])
         self._edit_button = Button("Edit", self._edit)
         self._start_button = Button("Start", self._start)
         self._quit_button = Button("Quit", self._quit)
@@ -158,13 +161,27 @@ class CompetitorListView(Frame):
                 self._export()
 
             else:
-                super(ListView, self).process_event(event)
+                super(CompetitorListView, self).process_event(event)
         else:
-            super(ListView, self).process_event(event)
+            super(CompetitorListView, self).process_event(event)
 
 
     def _get_summary(self):
-        pass
+        rows = []
+        i=0
+        for x in self._controller.get_current_competition().competitors:
+            option = (
+                [   str(i),
+                    "00:" + str(randrange(60)) + ":" + str(randrange(60)),
+                    x.number,
+                    x.competitor.name
+                    ],
+            x.id
+            )
+            i=i+1
+            rows.append(option)
+
+        return rows
 
     def _on_pick(self):
         self._edit_button.disabled = self._list_view.value is None
@@ -194,8 +211,10 @@ class CompetitorListView(Frame):
         if frame_no - self._last_frame >= self.frame_update_count or self._last_frame == 0:
             if self._start_time != None:
                 self._time_label.value = strftime('%H:%M:%S', gmtime(time() - self._start_time))
+            else:
+                self._time_label.value = "NOT STARTED"
 
-        super(ListView, self)._update(frame_no)
+        super(CompetitorListView, self)._update(frame_no)
 
     def _get_export_data(self):
         pass
@@ -231,7 +250,7 @@ class CompetitorListView(Frame):
 
 
 class CompetitorView(Frame):
-    def __init__(self, screen, session, competition, competitor):
+    def __init__(self, screen, controller):
         super(CompetitorView, self).__init__(screen,
                                           screen.height * 2 // 3,
                                           screen.width * 2 // 3,
@@ -239,13 +258,13 @@ class CompetitorView(Frame):
                                           title="Competitor Details",
                                           reduce_cpu=True)
         # Save off the model that accesses the competitors database.
-        # self._model = model
+        self._controller = controller
 
         # Create the form for displaying the list of competitors.
         layout = Layout([100], fill_frame=True)
         self.add_layout(layout)
         #layout.add_widget(Text("Name:", "name"))
-        layout.add_widget(Text("Bib:", "bib"))
+        layout.add_widget(Text("Number:", "bib"))
         layout2 = Layout([1, 1, 1, 1])
         self.add_layout(layout2)
         layout2.add_widget(Button("OK", self._ok), 0)
@@ -280,8 +299,8 @@ class CompetitorView(Frame):
 
 def demo(screen, scene):
     scenes = [
-        Scene([CompetitorListView(screen, competitors)], -1, name="Main"),
-        Scene([CompetitorView(screen, competitors)], -1, name="Edit competitor")
+        Scene([CompetitorListView(screen, controller)], -1, name="Main"),
+        Scene([CompetitorView(screen, controller)], -1, name="Edit competitor")
         # CompetitionListView
         # CompetitionView
         # CompetitionStartListView
@@ -309,14 +328,19 @@ while argv:
             os.remove("state.dat") if os.path.exists("state.dat") else None
             os.remove("competitors.db") if os.path.exists("competitors.db") else None
 
-#if os.path.isfile('competitors.txt'):
-#    tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
-#    for row in tsvin:
-#        names[row[0]] = row[1]
-
 engine = create_engine('sqlite:///:memory:', echo=True)
-Base = declarative_base()
 Session = sessionmaker(bind=engine)
+session = Session()
+Base.metadata.create_all(engine)
+
+controller = StateController(session)
+controller.set_current_competition("HARK Kore kilpa")
+
+if os.path.isfile('competitors.txt'):
+    tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
+    for row in tsvin:
+        controller.add_competitor(row[1], row[0])
+
 
 last_scene = None
 while True:
