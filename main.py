@@ -31,6 +31,7 @@ class Competition(Base):
     start_time = Column(DateTime)
     finish_time = Column(DateTime)
     notes = Column(String)
+    active = Column(Boolean)
     competitors = relationship("Participation", back_populates="competition")
     splits = relationship("Split", back_populates="competition")
 
@@ -76,7 +77,7 @@ class StateController(object):
         return self._current_competitor
 
     def set_current_competition(self, name):
-        comp = Competition(name=name, place="somewhere")
+        comp = Competition(name=name, place="somewhere", active=True)
         self._session.add(comp)
         self._session.commit()
         self._current_competition = comp
@@ -97,7 +98,8 @@ class StateController(object):
     def change_number(self, split_id):
         pass
 
-
+    def get_competitions(self):
+        return self._session.query(Competition)
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -116,7 +118,7 @@ class SplitListView(Frame):
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
-            ['5%', '30%','25%', '30%'],
+            ['10%', '25%','25%', '30%'],
             self._get_summary(),
             name="competitors",
             on_change=self._on_pick,
@@ -150,17 +152,15 @@ class SplitListView(Frame):
         self._on_pick()
 
     def process_event(self, event):
-        logging.info(event)
         if isinstance(event, KeyboardEvent):
             key = event.key_code
-            logging.info(key)
             if key == ord('s') or key == 32:
                 self._add()
             elif key == ord('e'):
                 self._edit()
             elif key == ord('x'):
                 self._export()
-            elif key == -2:
+            elif key == ord('m'):
                 raise NextScene("Main Menu")
 
             else:
@@ -175,7 +175,7 @@ class SplitListView(Frame):
         for x in self._controller.get_current_competition().competitors:
             option = (
                 [   str(i),
-                    "00:" + str(randrange(60)) + ":" + str(randrange(60)),
+                    "00:00",
                     x.number,
                     x.competitor.name
                     ],
@@ -236,7 +236,8 @@ class SplitListView(Frame):
                 writer.writerow([
                     rank,
                     l['bib'],
-                    get_name(l['bib']).encode('utf-8'),
+                    #get_name(l['bib']).encode('utf-8'),
+                    (l['bib']).encode('utf-8'),
                     strftime('%H:%M:%S', gmtime(l['finish_time'])),
                     strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._start_time + l['finish_time']))
                 ])
@@ -323,6 +324,7 @@ class StartListView(Frame):
         self._edit_button = Button("Edit", self._edit)
         self._present_button = Button("Present", self._present)
         self._quit_button = Button("Quit", self._quit)
+        self._start_time = None
 
         layout = Layout([100], fill_frame=True)
         self.add_layout(layout)
@@ -342,7 +344,7 @@ class StartListView(Frame):
         rows = []
         i=0
         for x in self._controller.get_current_competition().competitors:
-            if randrange(60) > 30:
+            if x.starting:
                 present = "[X]"
             else:
                 present = "[O]"
@@ -366,10 +368,10 @@ class StartListView(Frame):
         self._list_view.options = self._get_summary()
 
     def _add(self):
-        self._reload_list()
+        raise NextScene("Edit competitor")
 
     def _edit(self):
-        pass
+        raise NextScene("Edit competitor")
 
     def _present(self):
         self._reload_list()
@@ -411,7 +413,7 @@ class StartListView(Frame):
                 writer.writerow([
                     rank,
                     l['bib'],
-                    get_name(l['bib']).encode('utf-8'),
+                    (l['bib']).encode('utf-8'),
                     strftime('%H:%M:%S', gmtime(l['finish_time'])),
                     strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._start_time + l['finish_time']))
                 ])
@@ -466,7 +468,7 @@ class MenuListView(Frame):
         elif self._list_view.value == 2:
             raise NextScene("StartList")
         else:
-            raise NextScene("Main")
+            raise NextScene("CompetitionList")
 
     def process_event(self, event):
         logging.info(event)
@@ -485,14 +487,91 @@ class MenuListView(Frame):
         raise NextScene("Main")
 
 
+class CompetitionListView(Frame):
+    def __init__(self, screen, controller):
+        super(CompetitionListView, self).__init__(screen,
+                                       screen.height,
+                                       screen.width,
+                                       on_load=self._reload_list,
+                                       hover_focus=True,
+                                       title="TIMER2 v" + version + " - COMPETITIONS")
+        # Save off the model that accesses the competitors database.
+        logging.basicConfig(filename='example.log',level=logging.INFO)
 
-def demo(screen, scene):
+        self._controller = controller
+        self._last_frame = 0
+        # Create the form for displaying the list of competitions.
+        self._list_view = MultiColumnListBox(
+            Widget.FILL_FRAME,
+            ['10%', '25%','25%', '30%'],
+            self._get_summary(),
+            name="competitions",
+            titles=['id', 'Name', 'Date', 'Place'])
+        # self._edit_button = Button("Edit")
+        # self._start_button = Button("Start")
+        # self._quit_button = Button("Quit")
+
+        layout = Layout([100], fill_frame=True)
+
+        self.add_layout(layout)
+        self._time_label = Text("Time:")
+        self._time_label.value = "NOT STARTED"
+        self._time_label.disabled = True
+
+        layout.add_widget(self._time_label)
+        layout.add_widget(self._list_view)
+        layout.add_widget(Divider())
+        layout2 = Layout([1, 1, 1, 1])
+        self.add_layout(layout2)
+        # layout2.add_widget(self._start_button, 0)
+        # layout2.add_widget(self._edit_button, 1)
+        # layout2.add_widget(self._quit_button, 4)
+
+        self.fix()
+
+    def _get_summary(self):
+        rows = []
+        i=0
+        if self._controller.get_competitions() != None:
+            for x in self._controller.get_competitions():
+                option = (
+                    [   str(i),
+                        x.name,
+                        x.place,
+                        ""
+                        ],
+                x.id
+                )
+                i=i+1
+                rows.append(option)
+
+        return rows
+
+    def _reload_list(self):
+        self._list_view.options = self._get_summary()
+
+
+    def process_event(self, event):
+        logging.info(event)
+        if isinstance(event, KeyboardEvent):
+            key = event.key_code
+            if key == ord('m'):
+                raise NextScene("Main Menu")
+            else:
+                super(CompetitionListView, self).process_event(event)
+        else:
+            super(CompetitionListView, self).process_event(event)
+
+
+
+
+def demo(screen, id):
     scenes = [
         Scene([SplitListView(screen, controller)], -1, name="Main"),
         Scene([CompetitorView(screen, controller)], -1, name="Edit competitor"),
         Scene([MenuListView(screen, controller)], -1, name="Main Menu"),
-        Scene([StartListView(screen, controller)], -1, name="StartList")
-
+        Scene([StartListView(screen, controller)], -1, name="StartList"),
+        Scene([CompetitionListView(screen, controller)], -1, name="CompetitionList")
         # CompetitionListView
         # CompetitionView
         # CompetitionStartListView
@@ -500,7 +579,7 @@ def demo(screen, scene):
         # Scene([])
     ]
 
-    screen.play(scenes, stop_on_resize=True, start_scene=scene)
+    screen.play(scenes, stop_on_resize=True, start_scene=scenes[id])
 
 def unicode_csv_reader(utf8_data, **kwargs):
     # csv.py doesn't do Unicode; encode temporarily as UTF-8:
@@ -533,7 +612,7 @@ if os.path.isfile('competitors.txt'):
         controller.add_competitor(row[1], row[0])
 
 
-last_scene = None
+last_scene = 3
 while True:
     try:
         Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene])
