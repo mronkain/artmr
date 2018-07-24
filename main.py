@@ -677,22 +677,22 @@ def unicode_csv_reader(utf8_data, **kwargs):
 encoding = sys.getfilesystemencoding()
 argv = [unicode(x, encoding, 'ignore') for x in sys.argv[1:]]
 
+create_tables = not os.path.isfile('competitors.txt')
+
 while argv:
     arg = argv.pop()
     if arg == '--reset':
         confirm = raw_input("Delete existing competitions? All data will removed. [y/N] ")
-        if confirm == 'y':
-            os.remove("competitors.db") if os.path.exists("competitors.db") else None
+        if confirm == 'y' and os.path.exists("competitors.db"):
+            os.remove("competitors.db")
+            create_tables = True
 
-# engine = create_engine('sqlite:///competitors.db', echo=False)
-# Session = sessionmaker(bind=engine)
-# session = Session()
-# Base.metadata.create_all(engine)
+sqlhub.processConnection = connectionForURI("sqlite://" + os.path.abspath('competitors.db'))
 
-sqlhub.processConnection = connectionForURI('sqlite:/:memory:')
-Competition.createTable()
-Competitor.createTable()
-Split.createTable()
+if create_tables:
+    Competition.createTable()
+    Competitor.createTable()
+    Split.createTable()
 
 
 controller = StateController()
@@ -706,13 +706,13 @@ if comps.count() == 0:
 else:
     controller.set_current_competition(None)
 
-if os.path.isfile('competitors.txt'):
+if os.path.isfile('competitors.txt') and len(controller.get_current_competition().competitors) == 0:
     tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
     for row in tsvin:
         controller.add_competitor(row[1], row[0])
 
 
-if controller.get_current_competition().startTime == None:    
+if controller.get_current_competition().startTime == None:
     last_scene = 3
 else:
     last_scene = 0
