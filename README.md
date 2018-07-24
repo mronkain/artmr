@@ -26,7 +26,7 @@ To start a new race, use `--reset` command line option. Previous data is destroy
 
 ## Requirements
 Tested with python 2.7. Requires asciimatics and sqlalchemy libraries, install
-with `pip install asciimatics` and `pip install sqlalchemy`
+with `pip install asciimatics` and `pip install sqlobject`
 
 
 ## TODO

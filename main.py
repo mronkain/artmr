@@ -9,68 +9,48 @@ from asciimatics.event import KeyboardEvent
 from time import time, strftime, gmtime, localtime
 from datetime import datetime
 
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import sessionmaker, relationship
+from sqlobject import *
 
 import os.path
 import sys
 import logging
 import csv
-import datetime
 from random import randrange
 
-version = '0.4'
-Base = declarative_base()
+version = '0.5'
 
-class Competition(Base):
-    __tablename__ = 'competitions'
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    place = Column(String)
-    planned_start_time = Column(DateTime)
-    start_time = Column(DateTime)
-    finish_time = Column(DateTime)
-    notes = Column(String)
-    active = Column(Boolean)
-    competitors = relationship("Participation", back_populates="competition")
-    splits = relationship("Split", back_populates="competition")
+class Competition(SQLObject):
+    name = UnicodeCol()
+    place = UnicodeCol()
+    plannedStartTime = DateTimeCol(default=None)
+    startTime = DateTimeCol(default=None)
+    finishTime = DateTimeCol(default=None)
+    notes = StringCol(default=None)
+    active = BoolCol(default=None)
+    competitors = MultipleJoin('Competitor')
+    splits = MultipleJoin('Split')
 
-class Competitor(Base):
-    __tablename__ = 'competitors'
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    contact = Column(String)
-    competitions = relationship("Participation", back_populates="competitor")
-    splits = relationship("Split", back_populates="competitor")
+class Competitor(SQLObject):
+    name = UnicodeCol(default=None)
+    contact = StringCol(default=None)
+    number = IntCol(default=None)
+    starting = BoolCol(default=False)
 
-class Participation(Base):
-    __tablename__ = 'participations'
-    id = Column(Integer, primary_key=True)
-    competitor_id = Column(Integer, ForeignKey('competitors.id'))
-    competition_id = Column(Integer, ForeignKey('competitions.id'))
-    number = Column(String)
-    starting = Column(Boolean, default=False)
-    competitor = relationship("Competitor", back_populates="competitions")
-    competition = relationship("Competition", back_populates="competitors")
+    competition = ForeignKey('Competition')
+    splits = MultipleJoin('Split')
 
-class Split(Base):
-    __tablename__ = 'splits'
-    id = Column(Integer, primary_key=True)
-    competitor_id = Column(Integer, ForeignKey('competitors.id'))
-    competition_id = Column(Integer, ForeignKey('competitions.id'))
-    split_info = Column(String, default="Finish") # lap
-    time = Column(DateTime)
-    competitor = relationship("Competitor", back_populates="splits")
-    competition = relationship("Competition", back_populates="splits")
+class Split(SQLObject):
+    split_info = UnicodeCol(default="Finish") # lap
+    time = DateTimeCol(default=None)
+    competitor = ForeignKey('Competitor', default=None)
+    competition = ForeignKey('Competition')
 
 # global state singleton to keep track of what is being shown / edited
 class StateController(object):
-    def __init__(self, session):
-        self._session = session
+    def __init__(self):
         self._current_competition = None
         self._current_competitor = None
+        self._current_split = None
 
     def get_current_competition(self):
         return self._current_competition
@@ -79,44 +59,54 @@ class StateController(object):
         return self._current_competitor
 
     def set_current_competition(self, name):
-        q = None
-        if name: 
-            q = self._session.query(Competition).filter_by(name=name) 
-        else:
-            q = self._session.query(Competition)
-
-        self._current_competition = q.first()
+        self._current_competition = Competition.get(1)
 
     def create_competition(self, name):
         comp = Competition(name=name, place="somewhere", active=True)
-        self._session.add(comp)
-        self._session.commit()
         self._current_competition = comp
 
-    def set_current_competitor(self):
-        pass
+    def set_current_competitor(self, competitor):    
+        try: 
+            self._current_competitor = Competitor.selectBy(id=competitor).getOne()
+        except SQLObjectNotFound as e:
+            self._current_competitor = None
+
+    def set_current_split(self, split):    
+        try: 
+            self._current_split = Split.selectBy(id=split).getOne()
+        except SQLObjectNotFound as e:
+            self._current_split = None
+
 
     def add_competitor(self, competitor, number):
-        c = Competitor(name=competitor)
-        p = Participation(number=number)
-        p.competitor = c
-        self._current_competition.competitors.append(p)
-        self._session.commit()
-
+        self._current_competitor = Competitor(name=competitor, number=int(number), competition=self._current_competition)
+    
     def add_split(self, time):
-        s=Split(time=time, competition=self.get_current_competition)
-        self._session.add(s)
-        self._session.commit()
-        
+        s=Split(time=time, competition=self._current_competition)
+        return s.id
+
     def change_number(self, split_id):
         pass
 
     def get_competitions(self):
-        return self._session.query(Competition)
+        return Competition.select()
 
     def start_current_competition(self, start_time):
-        self._current_competition.start_time = start_time
-        self._session.commit()
+        self._current_competition.startTime = start_time
+
+    def get_competitors(self, sort):
+        if sort == "alpha":
+            return Competitor.select(Competition.q.id==self._current_competition.id).orderBy('name')
+        else:
+            return Competitor.select(Competition.q.id==self._current_competition.id).orderBy('number')
+
+    def set_current_split_competitor(self):
+        if self._current_competitor and self._current_split:
+            self._current_split.competitor = self._current_competitor
+            logging.info(self._current_split.competitor)
+        else:
+            logging.info("not set")
+    
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -134,40 +124,56 @@ class SplitListView(Frame):
         self._last_frame = 0
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
-            Widget.FILL_FRAME,
+            10, 
             ['10%', '25%','25%', '30%'],
             self._get_summary(),
-            name="competitors",
+            name="splits",
             on_change=self._on_pick,
             titles=['Rank', 'Finishing time', 'Number', 'Name'])
+
+        self._start_list_view = MultiColumnListBox(
+            Widget.FILL_FRAME, 
+            ['50%','50%'],
+            self._get_competitor_summary(),
+            name="competitors",
+            on_change=self._on_comp_pick,
+            titles=['Number', 'Name'])
+
+
         self._edit_button = Button("Edit", self._edit)
         self._start_button = Button("Start", self._start)
         self._quit_button = Button("Quit", self._quit)
         self._split_button = Button("Split", self._add)
         self._start_list_button = Button("Start list", self._start_list)
 
-        self._start_button.disabled = (self._controller.get_current_competition().start_time != None)
-        self._split_button.disabled = (self._controller.get_current_competition().start_time == None)
+        self._start_button.disabled = (self._controller.get_current_competition().startTime != None)
+        self._split_button.disabled = (self._controller.get_current_competition().startTime == None)
 
-        layout = Layout([100], fill_frame=True)
+        layout0 = Layout([100])
+        layout1 = Layout([75,25], fill_frame=True)
+        layout2 = Layout([100])
+        self.add_layout(layout0)
+        self.add_layout(layout1)
+        self.add_layout(layout2)
 
-        self.add_layout(layout)
         self._time_label = Text("Time:")
         self._time_label.value = "NOT STARTED"
         self._time_label.disabled = True
 
-        layout.add_widget(self._time_label)
-        layout.add_widget(self._list_view)
-        layout.add_widget(Divider())
+        layout0.add_widget(self._time_label)
+        layout1.add_widget(self._list_view, 0)
+        layout1.add_widget(self._start_list_view, 1)
+        layout0.add_widget(Divider())
+        layout2.add_widget(Divider())
+        #layout3 = Layout([1, 1, 1, 1])
         layout3 = Layout([1, 1, 1, 1])
-        layout2 = Layout([1, 1, 1, 1])
         #self.add_layout(layout3)
         #layout3.add_widget(self._start_list_button, 0)
-        self.add_layout(layout2)
-        layout2.add_widget(self._start_button, 0)
-        layout2.add_widget(self._split_button, 1)
-        layout2.add_widget(self._start_list_button, 2)
-        layout2.add_widget(self._quit_button, 3)
+        self.add_layout(layout3)
+        layout3.add_widget(self._start_button, 0)
+        layout3.add_widget(self._split_button, 1)
+        layout3.add_widget(self._start_list_button, 2)
+        layout3.add_widget(self._quit_button, 3)
 
         self.fix()
         self._on_pick()
@@ -180,8 +186,10 @@ class SplitListView(Frame):
             elif key == ord('e'):
                 self._edit()
             elif key == ord('x'):
-                self._export()
-            elif key == ord('m'):
+                pass#self._export()
+            elif key == ord('t'):
+                self._match_split()
+            elif key == ord('m') or key == -2:
                 raise NextScene("Main Menu")
 
             else:
@@ -192,29 +200,67 @@ class SplitListView(Frame):
 
     def _get_summary(self):
         rows = []
-        i=0
-        for x in self._controller.get_current_competition().competitors:
+        i=1
+        for split in self._controller.get_current_competition().splits:
+            if split.competitor:
+                name = split.competitor.name
+                number = str(split.competitor.number)
+            else:
+                name = ""
+                number = ""
+
             option = (
                 [   str(i),
-                    "00:00",
-                    x.number,
-                    x.competitor.name
+                    str(split.time.replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0)),
+                    number,
+                    name
                     ],
-            x.id
+            split.id
             )
             i=i+1
             rows.append(option)
 
         return rows
 
+    def _get_competitor_summary(self):
+        rows = []
+        i=0
+        for x in self._controller.get_competitors("123"):
+            option = (
+                [   str(x.number),                    
+                    x.name
+                ],
+                x.id
+            )
+            i=i+1
+            rows.append(option)
+
+        return rows
+
+
     def _on_pick(self):
+        self._controller.set_current_split(self._list_view.value)
         self._edit_button.disabled = self._list_view.value is None
 
+    def _on_comp_pick(self):
+        self._controller.set_current_competitor(self._start_list_view.value)        
+
     def _reload_list(self):
+        val = self._list_view.value
         self._list_view.options = self._get_summary()
+        self._list_view.value = val
 
     def _add(self):
-        self._reload_list()
+        if self._controller.get_current_competition().startTime == None:
+            self._start()
+        else:
+            split_id = self._controller.add_split(datetime.now())
+            logging.info(self._list_view.value)
+            
+            self._reload_list()
+            self._list_view.value = split_id
+            self._on_pick
+            logging.info(self._list_view.value)
 
     def _edit(self):
         self.save()
@@ -228,7 +274,7 @@ class SplitListView(Frame):
         self._reload_list()
 
     def _start(self):
-        if self._controller.get_current_competition().start_time == None:
+        if self._controller.get_current_competition().startTime == None:
             self._controller.start_current_competition(datetime.now())
 
         self._start_button.disabled = True
@@ -236,12 +282,16 @@ class SplitListView(Frame):
 
     def _update(self, frame_no):
         if frame_no - self._last_frame >= self.frame_update_count or self._last_frame == 0:
-            if self._controller.get_current_competition().start_time != None:
-                self._time_label.value = str(datetime.now().replace(microsecond=0) - self._controller.get_current_competition().start_time.replace(microsecond=0))
+            if self._controller.get_current_competition().startTime != None:
+                self._time_label.value = str(datetime.now().replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0))
             else:
                 self._time_label.value = "NOT STARTED"
 
         super(SplitListView, self)._update(frame_no)
+
+    def _match_split(self):
+        self._controller.set_current_split_competitor()
+        self._reload_list()
 
     def _get_export_data(self):
         pass
@@ -254,7 +304,7 @@ class SplitListView(Frame):
 
             writer.writerow(['rank', 'bib', '(((Start time)))',
                 '00:00:00',
-                strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._controller.get_current_competition().start_time))])
+                strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._controller.get_current_competition().startTime))])
             rank = 1
             for l in list:
                 writer.writerow([
@@ -263,7 +313,7 @@ class SplitListView(Frame):
                     #get_name(l['bib']).encode('utf-8'),
                     (l['bib']).encode('utf-8'),
                     strftime('%H:%M:%S', gmtime(l['finish_time'])),
-                    strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._controller.get_current_competition().start_time + l['finish_time']))
+                    strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._controller.get_current_competition().startTime + l['finish_time']))
                 ])
                 rank += 1
 
@@ -322,7 +372,7 @@ class CompetitorView(Frame):
 
     @staticmethod
     def _cancel():
-        raise NextScene("Main")
+        raise NextScene
 
 class StartListView(Frame):
     def __init__(self, screen, controller):
@@ -332,11 +382,10 @@ class StartListView(Frame):
                                        on_load=self._reload_list,
                                        hover_focus=True,
                                        title="TIMER2 v" + version + " - START LIST " + controller.get_current_competition().name)
-        # Save off the model that accesses the competitors database.
-
         self._controller = controller
         self._last_frame = 0
-        # Create the form for displaying the list of competitors.
+        self._sort = "abc"
+
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
             ['15%', '15%','70%'],
@@ -345,8 +394,8 @@ class StartListView(Frame):
             on_change=self._on_pick,
             titles=['Number', 'Call-up', 'Name'])
         self._add_button = Button("Add", self._add)
-        self._edit_button = Button("Edit", self._edit)
-        self._present_button = Button("Present", self._present)
+        self._edit_button = Button("Sort ABC", self._toggle_sort)
+        self._present_button = Button("Present", self._starting)
         self._quit_button = Button("Quit", self._quit)
         self._start_time = None
 
@@ -367,37 +416,50 @@ class StartListView(Frame):
     def _get_summary(self):
         rows = []
         i=0
-        for x in self._controller.get_current_competition().competitors:
+        #import code; code.interact(local=locals())
+        for x in self._controller.get_competitors(self._sort):
             if x.starting:
                 present = "[X]"
             else:
                 present = "[O]"
 
             option = (
-                [   x.number,
+                [   str(x.number),
                     present,
-                    x.competitor.name
+                    x.name
                 ],
                 x.id
             )
             i=i+1
             rows.append(option)
 
+        #
         return rows
 
     def _on_pick(self):
         self._edit_button.disabled = self._list_view.value is None
+        self._controller.set_current_competitor(self._list_view.value)
 
     def _reload_list(self):
+        val = self._list_view.value
         self._list_view.options = self._get_summary()
+        self._list_view.value = val
 
     def _add(self):
         raise NextScene("Edit competitor")
 
-    def _edit(self):
-        raise NextScene("Edit competitor")
+    def _toggle_sort(self):
+        if self._sort == "alpha":
+            self._sort = "123"
+        else:
+            self._sort = "alpha"
+        self._reload_list()
 
-    def _present(self):
+    def _starting(self):
+        self._controller.get_current_competitor().starting=True
+        #
+        #self._controller.current_participation_starting(True)
+        
         self._reload_list()
 
     def process_event(self, event):
@@ -406,11 +468,11 @@ class StartListView(Frame):
             key = event.key_code
             if key == ord('a'):
                 self._add()
-            elif key == ord('e') or key == 10:
-                self._edit()
+            elif key == ord('s'):
+                self._toggle_sort()
             elif key == ord('p') or key == 32:
-                self._present()
-            elif key == ord('m'):
+                self._starting()
+            elif key == ord('m') or key == -2:
                 raise NextScene("Main Menu")
 
             else:
@@ -618,16 +680,22 @@ argv = [unicode(x, encoding, 'ignore') for x in sys.argv[1:]]
 while argv:
     arg = argv.pop()
     if arg == '--reset':
-        confirm = raw_input("Delete existing competitions? All data will removed. [y/N]")
+        confirm = raw_input("Delete existing competitions? All data will removed. [y/N] ")
         if confirm == 'y':
             os.remove("competitors.db") if os.path.exists("competitors.db") else None
 
-engine = create_engine('sqlite:///competitors.db', echo=False)
-Session = sessionmaker(bind=engine)
-session = Session()
-Base.metadata.create_all(engine)
+# engine = create_engine('sqlite:///competitors.db', echo=False)
+# Session = sessionmaker(bind=engine)
+# session = Session()
+# Base.metadata.create_all(engine)
 
-controller = StateController(session)
+sqlhub.processConnection = connectionForURI('sqlite:/:memory:')
+Competition.createTable()
+Competitor.createTable()
+Split.createTable()
+
+
+controller = StateController()
 
 comps = controller.get_competitions()
 
@@ -638,13 +706,13 @@ if comps.count() == 0:
 else:
     controller.set_current_competition(None)
 
-if os.path.isfile('competitors.txt') and len(controller.get_current_competition().competitors) == 0:
+if os.path.isfile('competitors.txt'):
     tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
     for row in tsvin:
         controller.add_competitor(row[1], row[0])
 
 
-if controller.get_current_competition().start_time == None:    
+if controller.get_current_competition().startTime == None:    
     last_scene = 3
 else:
     last_scene = 0
@@ -654,4 +722,4 @@ while True:
         Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene])
         sys.exit(0)
     except ResizeScreenError as e:
-        last_scene = e.scene
+        pass
