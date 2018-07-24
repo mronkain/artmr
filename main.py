@@ -100,13 +100,12 @@ class StateController(object):
         else:
             return Competitor.select(Competition.q.id==self._current_competition.id).orderBy('number')
 
+    def get_present_competitors(self):
+        return Competitor.select(AND(Competition.q.id==self._current_competition.id,Competitor.q.starting==True)).orderBy('number')
+
     def set_current_split_competitor(self):
         if self._current_competitor and self._current_split:
-            self._current_split.competitor = self._current_competitor
-            logging.info(self._current_split.competitor)
-        else:
-            logging.info("not set")
-    
+            self._current_split.competitor = self._current_competitor    
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -115,7 +114,7 @@ class SplitListView(Frame):
                                        screen.width,
                                        on_load=self._reload_list,
                                        hover_focus=True,
-                                       title="TIMER2 v" + version + " - SPLITS " + controller.get_current_competition().name)
+                                       title="TIMER2 v" + version + " - RESULTS for " + controller.get_current_competition().name)
         # Save off the model that accesses the competitors database.
         logging.basicConfig(filename='example.log',level=logging.INFO)
 
@@ -124,7 +123,7 @@ class SplitListView(Frame):
         self._last_frame = 0
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
-            10, 
+            Widget.FILL_FRAME, 
             ['10%', '25%','25%', '30%'],
             self._get_summary(),
             name="splits",
@@ -140,7 +139,7 @@ class SplitListView(Frame):
             titles=['Number', 'Name'])
 
 
-        self._edit_button = Button("Edit", self._edit)
+        self._edit_button = Button("Edit", self._match_split)
         self._start_button = Button("Start", self._start)
         self._quit_button = Button("Quit", self._quit)
         self._split_button = Button("Split", self._add)
@@ -156,7 +155,7 @@ class SplitListView(Frame):
         self.add_layout(layout1)
         self.add_layout(layout2)
 
-        self._time_label = Text("Time:")
+        self._time_label = Text("Elapsed Time:")
         self._time_label.value = "NOT STARTED"
         self._time_label.disabled = True
 
@@ -165,15 +164,13 @@ class SplitListView(Frame):
         layout1.add_widget(self._start_list_view, 1)
         layout0.add_widget(Divider())
         layout2.add_widget(Divider())
-        #layout3 = Layout([1, 1, 1, 1])
-        layout3 = Layout([1, 1, 1, 1])
-        #self.add_layout(layout3)
-        #layout3.add_widget(self._start_list_button, 0)
+        layout3 = Layout([1, 1, 1, 1, 1])
         self.add_layout(layout3)
-        layout3.add_widget(self._start_button, 0)
-        layout3.add_widget(self._split_button, 1)
-        layout3.add_widget(self._start_list_button, 2)
-        layout3.add_widget(self._quit_button, 3)
+        layout3.add_widget(self._start_list_button, 0)
+        layout3.add_widget(self._start_button, 1)
+        layout3.add_widget(self._split_button, 2)
+        layout3.add_widget(self._edit_button, 3)
+        layout3.add_widget(self._quit_button, 4)
 
         self.fix()
         self._on_pick()
@@ -184,11 +181,9 @@ class SplitListView(Frame):
             if key == ord('s') or key == 32:
                 self._add()
             elif key == ord('e'):
-                self._edit()
+                self._match_split()
             elif key == ord('x'):
                 pass#self._export()
-            elif key == ord('t'):
-                self._match_split()
             elif key == ord('m') or key == -2:
                 raise NextScene("Main Menu")
 
@@ -225,15 +220,16 @@ class SplitListView(Frame):
     def _get_competitor_summary(self):
         rows = []
         i=0
-        for x in self._controller.get_competitors("123"):
-            option = (
-                [   str(x.number),                    
-                    x.name
-                ],
-                x.id
-            )
-            i=i+1
-            rows.append(option)
+        for competitor in self._controller.get_present_competitors():
+            if len(competitor.splits) == 0:
+                option = (
+                    [   str(competitor.number),                    
+                        competitor.name
+                    ],
+                    competitor.id
+                )
+                i=i+1
+                rows.append(option)
 
         return rows
 
@@ -250,17 +246,17 @@ class SplitListView(Frame):
         self._list_view.options = self._get_summary()
         self._list_view.value = val
 
+        self._start_list_view.options = self._get_competitor_summary()
+
     def _add(self):
         if self._controller.get_current_competition().startTime == None:
             self._start()
         else:
             split_id = self._controller.add_split(datetime.now())
-            logging.info(self._list_view.value)
             
             self._reload_list()
             self._list_view.value = split_id
             self._on_pick
-            logging.info(self._list_view.value)
 
     def _edit(self):
         self.save()
@@ -326,54 +322,6 @@ class SplitListView(Frame):
     def _quit():
         raise StopApplication("User pressed quit")
 
-
-class CompetitorView(Frame):
-    def __init__(self, screen, controller):
-        super(CompetitorView, self).__init__(screen,
-                                          screen.height * 2 // 3,
-                                          screen.width * 2 // 3,
-                                          hover_focus=True,
-                                          title="Competitor Details",
-                                          reduce_cpu=True)
-        # Save off the model that accesses the competitors database.
-        self._controller = controller
-
-        # Create the form for displaying the list of competitors.
-        layout = Layout([100], fill_frame=True)
-        self.add_layout(layout)
-        #layout.add_widget(Text("Name:", "name"))
-        layout.add_widget(Text("Number:", "bib"))
-        layout2 = Layout([1, 1, 1, 1])
-        self.add_layout(layout2)
-        layout2.add_widget(Button("OK", self._ok), 0)
-        layout2.add_widget(Button("Cancel", self._cancel), 3)
-        self.fix()
-
-    def reset(self):
-        # Do standard reset to clear out form, then populate with new data.
-        super(CompetitorView, self).reset()
-        # self.data = self._model.get_current_competitor()
-
-    def _ok(self):
-        self.save()
-        # self._model.update_current_competitor(self.data)
-        raise NextScene("Main")
-
-    def process_event(self, event):
-        if isinstance(event, KeyboardEvent):
-            key = event.key_code
-            if key == 10:
-                self._ok()
-            else:
-                super(CompetitorView, self).process_event(event)
-        else:
-            super(CompetitorView, self).process_event(event)
-
-
-    @staticmethod
-    def _cancel():
-        raise NextScene
-
 class StartListView(Frame):
     def __init__(self, screen, controller):
         super(StartListView, self).__init__(screen,
@@ -381,7 +329,7 @@ class StartListView(Frame):
                                        screen.width,
                                        on_load=self._reload_list,
                                        hover_focus=True,
-                                       title="TIMER2 v" + version + " - START LIST " + controller.get_current_competition().name)
+                                       title="TIMER2 v" + version + " - START LIST for " + controller.get_current_competition().name)
         self._controller = controller
         self._last_frame = 0
         self._sort = "abc"
@@ -393,7 +341,7 @@ class StartListView(Frame):
             name="start list",
             on_change=self._on_pick,
             titles=['Number', 'Call-up', 'Name'])
-        self._add_button = Button("Add", self._add)
+        self._splits_button = Button("Timing", self._splits)
         self._edit_button = Button("Sort ABC", self._toggle_sort)
         self._present_button = Button("Present", self._starting)
         self._quit_button = Button("Quit", self._quit)
@@ -405,7 +353,7 @@ class StartListView(Frame):
         layout.add_widget(Divider())
         layout2 = Layout([1, 1, 1, 1])
         self.add_layout(layout2)
-        layout2.add_widget(self._add_button, 0)
+        layout2.add_widget(self._splits_button, 0)
         layout2.add_widget(self._present_button, 1)
         layout2.add_widget(self._edit_button, 2)
         layout2.add_widget(self._quit_button, 3)
@@ -415,8 +363,6 @@ class StartListView(Frame):
 
     def _get_summary(self):
         rows = []
-        i=0
-        #import code; code.interact(local=locals())
         for x in self._controller.get_competitors(self._sort):
             if x.starting:
                 present = "[X]"
@@ -430,10 +376,8 @@ class StartListView(Frame):
                 ],
                 x.id
             )
-            i=i+1
             rows.append(option)
 
-        #
         return rows
 
     def _on_pick(self):
@@ -445,30 +389,25 @@ class StartListView(Frame):
         self._list_view.options = self._get_summary()
         self._list_view.value = val
 
-    def _add(self):
-        raise NextScene("Edit competitor")
-
     def _toggle_sort(self):
         if self._sort == "alpha":
             self._sort = "123"
         else:
             self._sort = "alpha"
+
         self._reload_list()
 
     def _starting(self):
-        self._controller.get_current_competitor().starting=True
-        #
-        #self._controller.current_participation_starting(True)
-        
+        self._controller.get_current_competitor().starting = not self._controller.get_current_competitor().starting        
         self._reload_list()
 
+    def _splits(self):
+        raise NextScene("Main")
+
     def process_event(self, event):
-        logging.info(event)
         if isinstance(event, KeyboardEvent):
-            key = event.key_code
-            if key == ord('a'):
-                self._add()
-            elif key == ord('s'):
+            key = event.key_code            
+            if key == ord('s'):
                 self._toggle_sort()
             elif key == ord('p') or key == 32:
                 self._starting()
@@ -523,7 +462,6 @@ class MenuListView(Frame):
                                           title="Main Menu",
                                           reduce_cpu=True)
 
-        # Create the form for displaying the list of contacts.
         self._list_view = ListBox(
             Widget.FILL_FRAME,
             self._get_items(),
@@ -542,9 +480,8 @@ class MenuListView(Frame):
 
     def _get_items(self):
         opts = [
-            ("Splits", 1),
+            ("Timing", 1),
             ("Start list", 2)
-            #("Select competititon", 3)
         ]
         return opts
 
@@ -553,11 +490,8 @@ class MenuListView(Frame):
             raise NextScene("Main")
         elif self._list_view.value == 2:
             raise NextScene("StartList")
-        #else:
-        #    raise NextScene("CompetitionList")
 
     def process_event(self, event):
-        logging.info(event)
         if isinstance(event, KeyboardEvent):
             key = event.key_code
             if key == 10 or key == 32:
@@ -573,96 +507,11 @@ class MenuListView(Frame):
         raise NextScene("Main")
 
 
-class CompetitionListView(Frame):
-    def __init__(self, screen, controller):
-        super(CompetitionListView, self).__init__(screen,
-                                       screen.height,
-                                       screen.width,
-                                       on_load=self._reload_list,
-                                       hover_focus=True,
-                                       title="TIMER2 v" + version + " - COMPETITIONS")
-        # Save off the model that accesses the competitors database.
-        logging.basicConfig(filename='example.log',level=logging.INFO)
-
-        self._controller = controller
-        self._last_frame = 0
-        # Create the form for displaying the list of competitions.
-        self._list_view = MultiColumnListBox(
-            Widget.FILL_FRAME,
-            ['10%', '25%','25%', '30%'],
-            self._get_summary(),
-            name="competitions",
-            titles=['id', 'Name', 'Date', 'Place'])
-        # self._edit_button = Button("Edit")
-        # self._start_button = Button("Start")
-        # self._quit_button = Button("Quit")
-
-        layout = Layout([100], fill_frame=True)
-
-        self.add_layout(layout)
-        self._time_label = Text("Time:")
-        self._time_label.value = "NOT STARTED"
-        self._time_label.disabled = True
-
-        layout.add_widget(self._time_label)
-        layout.add_widget(self._list_view)
-        layout.add_widget(Divider())
-        layout2 = Layout([1, 1, 1, 1])
-        self.add_layout(layout2)
-        # layout2.add_widget(self._start_button, 0)
-        # layout2.add_widget(self._edit_button, 1)
-        # layout2.add_widget(self._quit_button, 4)
-
-        self.fix()
-
-    def _get_summary(self):
-        rows = []
-        i=0
-        if self._controller.get_competitions() != None:
-            for x in self._controller.get_competitions():
-                option = (
-                    [   str(i),
-                        x.name,
-                        x.place,
-                        ""
-                        ],
-                x.id
-                )
-                i=i+1
-                rows.append(option)
-
-        return rows
-
-    def _reload_list(self):
-        self._list_view.options = self._get_summary()
-
-
-    def process_event(self, event):
-        logging.info(event)
-        if isinstance(event, KeyboardEvent):
-            key = event.key_code
-            if key == ord('m'):
-                raise NextScene("Main Menu")
-            else:
-                super(CompetitionListView, self).process_event(event)
-        else:
-            super(CompetitionListView, self).process_event(event)
-
-
-
-
 def demo(screen, id):
     scenes = [
         Scene([SplitListView(screen, controller)], -1, name="Main"),
-        Scene([CompetitorView(screen, controller)], -1, name="Edit competitor"),
         Scene([MenuListView(screen, controller)], -1, name="Main Menu"),
         Scene([StartListView(screen, controller)], -1, name="StartList"),
-        Scene([CompetitionListView(screen, controller)], -1, name="CompetitionList")
-        # CompetitionListView
-        # CompetitionView
-        # CompetitionStartListView
-        # PopUpMenuListView
-        # Scene([])
     ]
 
     screen.play(scenes, stop_on_resize=True, start_scene=scenes[id])
@@ -694,7 +543,6 @@ if create_tables:
     Competitor.createTable()
     Split.createTable()
 
-
 controller = StateController()
 
 comps = controller.get_competitions()
@@ -713,7 +561,7 @@ if os.path.isfile('competitors.txt') and len(controller.get_current_competition(
 
 
 if controller.get_current_competition().startTime == None:
-    last_scene = 3
+    last_scene = 2
 else:
     last_scene = 0
 
