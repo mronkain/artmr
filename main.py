@@ -118,7 +118,7 @@ class SplitListView(Frame):
                                        on_load=self._reload_list,
                                        hover_focus=True,
                                        title="TIMER2 v" + version + " - RESULTS for " + controller.get_current_competition().name)
-        # Save off the model that accesses the competitors database.
+
         logging.basicConfig(filename='example.log',level=logging.INFO)
 
         self._controller = controller
@@ -213,7 +213,7 @@ class SplitListView(Frame):
                     number,
                     name
                     ],
-            split.id
+                split.id
             )
             i=i+1
             rows.append(option)
@@ -222,7 +222,6 @@ class SplitListView(Frame):
 
     def _get_competitor_summary(self):
         rows = []
-        i=0
         for competitor in self._controller.get_present_competitors():
             if len(competitor.splits) == 0:
                 option = (
@@ -231,7 +230,6 @@ class SplitListView(Frame):
                     ],
                     competitor.id
                 )
-                i=i+1
                 rows.append(option)
 
         return rows
@@ -551,7 +549,7 @@ controller = StateController()
 comps = controller.get_competitions()
 
 if comps.count() == 0:
-    name = raw_input("Enter your competition name: ") or "~~You really should have a name for these things~~"
+    name = raw_input("Enter your competition name: [blank]") or "~~You really should have a name for these things~~"
     controller.create_competition(name)    
 
 else:
