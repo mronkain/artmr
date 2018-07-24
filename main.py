@@ -18,6 +18,7 @@ import os.path
 import sys
 import logging
 import csv
+import datetime
 from random import randrange
 
 version = '0.4'
@@ -78,6 +79,15 @@ class StateController(object):
         return self._current_competitor
 
     def set_current_competition(self, name):
+        q = None
+        if name: 
+            q = self._session.query(Competition).filter_by(name=name) 
+        else:
+            q = self._session.query(Competition)
+
+        self._current_competition = q.first()
+
+    def create_competition(self, name):
         comp = Competition(name=name, place="somewhere", active=True)
         self._session.add(comp)
         self._session.commit()
@@ -134,6 +144,7 @@ class SplitListView(Frame):
         self._start_button = Button("Start", self._start)
         self._quit_button = Button("Quit", self._quit)
         self._split_button = Button("Split", self._add)
+        self._start_list_button = Button("Start list", self._start_list)
 
         self._start_button.disabled = (self._controller.get_current_competition().start_time != None)
         self._split_button.disabled = (self._controller.get_current_competition().start_time == None)
@@ -148,11 +159,14 @@ class SplitListView(Frame):
         layout.add_widget(self._time_label)
         layout.add_widget(self._list_view)
         layout.add_widget(Divider())
+        layout3 = Layout([1, 1, 1, 1])
         layout2 = Layout([1, 1, 1, 1])
+        #self.add_layout(layout3)
+        #layout3.add_widget(self._start_list_button, 0)
         self.add_layout(layout2)
         layout2.add_widget(self._start_button, 0)
         layout2.add_widget(self._split_button, 1)
-        layout2.add_widget(self._edit_button, 2)
+        layout2.add_widget(self._start_list_button, 2)
         layout2.add_widget(self._quit_button, 3)
 
         self.fix()
@@ -205,6 +219,9 @@ class SplitListView(Frame):
     def _edit(self):
         self.save()
         raise NextScene("Edit competitor")
+
+    def _start_list(self):
+        raise NextScene("StartList")
 
     def _delete(self):
         self.save()
@@ -464,8 +481,8 @@ class MenuListView(Frame):
     def _get_items(self):
         opts = [
             ("Splits", 1),
-            ("Start list", 2),
-            ("Select competititon", 3)
+            ("Start list", 2)
+            #("Select competititon", 3)
         ]
         return opts
 
@@ -474,8 +491,8 @@ class MenuListView(Frame):
             raise NextScene("Main")
         elif self._list_view.value == 2:
             raise NextScene("StartList")
-        else:
-            raise NextScene("CompetitionList")
+        #else:
+        #    raise NextScene("CompetitionList")
 
     def process_event(self, event):
         logging.info(event)
@@ -605,21 +622,33 @@ while argv:
         if confirm == 'y':
             os.remove("competitors.db") if os.path.exists("competitors.db") else None
 
-engine = create_engine('sqlite:///:memory:', echo=True)
+engine = create_engine('sqlite:///competitors.db', echo=False)
 Session = sessionmaker(bind=engine)
 session = Session()
 Base.metadata.create_all(engine)
 
 controller = StateController(session)
-controller.set_current_competition("HARK Kore kilpa")
 
-if os.path.isfile('competitors.txt'):
+comps = controller.get_competitions()
+
+if comps.count() == 0:
+    name = raw_input("Enter your competition name: ") or "~~You really should have a name for these things~~"
+    controller.create_competition(name)    
+
+else:
+    controller.set_current_competition(None)
+
+if os.path.isfile('competitors.txt') and len(controller.get_current_competition().competitors) == 0:
     tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
     for row in tsvin:
         controller.add_competitor(row[1], row[0])
 
 
-last_scene = 0
+if controller.get_current_competition().start_time == None:    
+    last_scene = 3
+else:
+    last_scene = 0
+
 while True:
     try:
         Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene])
