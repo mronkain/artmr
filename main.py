@@ -7,6 +7,7 @@ from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
 from asciimatics.event import KeyboardEvent
 
 from time import time, strftime, gmtime, localtime
+from datetime import datetime
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -93,13 +94,19 @@ class StateController(object):
         self._session.commit()
 
     def add_split(self, time):
-        pass
-
+        s=Split(time=time, competition=self.get_current_competition)
+        self._session.add(s)
+        self._session.commit()
+        
     def change_number(self, split_id):
         pass
 
     def get_competitions(self):
         return self._session.query(Competition)
+
+    def start_current_competition(self, start_time):
+        self._current_competition.start_time = start_time
+        self._session.commit()
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -113,7 +120,7 @@ class SplitListView(Frame):
         logging.basicConfig(filename='example.log',level=logging.INFO)
 
         self._controller = controller
-        self._start_time = None
+        
         self._last_frame = 0
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
@@ -128,8 +135,8 @@ class SplitListView(Frame):
         self._quit_button = Button("Quit", self._quit)
         self._split_button = Button("Split", self._add)
 
-        self._start_button.disabled = (self._start_time != None)
-        self._split_button.disabled = (self._start_time == None)
+        self._start_button.disabled = (self._controller.get_current_competition().start_time != None)
+        self._split_button.disabled = (self._controller.get_current_competition().start_time == None)
 
         layout = Layout([100], fill_frame=True)
 
@@ -204,16 +211,16 @@ class SplitListView(Frame):
         self._reload_list()
 
     def _start(self):
-        if self._start_time == None:
-            self._start_time = time()
+        if self._controller.get_current_competition().start_time == None:
+            self._controller.start_current_competition(datetime.now())
 
         self._start_button.disabled = True
         self._split_button.disabled = False
 
     def _update(self, frame_no):
         if frame_no - self._last_frame >= self.frame_update_count or self._last_frame == 0:
-            if self._start_time != None:
-                self._time_label.value = strftime('%H:%M:%S', gmtime(time() - self._start_time))
+            if self._controller.get_current_competition().start_time != None:
+                self._time_label.value = str(datetime.now().replace(microsecond=0) - self._controller.get_current_competition().start_time.replace(microsecond=0))
             else:
                 self._time_label.value = "NOT STARTED"
 
@@ -230,7 +237,7 @@ class SplitListView(Frame):
 
             writer.writerow(['rank', 'bib', '(((Start time)))',
                 '00:00:00',
-                strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._start_time))])
+                strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._controller.get_current_competition().start_time))])
             rank = 1
             for l in list:
                 writer.writerow([
@@ -239,7 +246,7 @@ class SplitListView(Frame):
                     #get_name(l['bib']).encode('utf-8'),
                     (l['bib']).encode('utf-8'),
                     strftime('%H:%M:%S', gmtime(l['finish_time'])),
-                    strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._start_time + l['finish_time']))
+                    strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._controller.get_current_competition().start_time + l['finish_time']))
                 ])
                 rank += 1
 
@@ -386,7 +393,7 @@ class StartListView(Frame):
                 self._edit()
             elif key == ord('p') or key == 32:
                 self._present()
-            elif key == -2:
+            elif key == ord('m'):
                 raise NextScene("Main Menu")
 
             else:
@@ -612,7 +619,7 @@ if os.path.isfile('competitors.txt'):
         controller.add_competitor(row[1], row[0])
 
 
-last_scene = 3
+last_scene = 0
 while True:
     try:
         Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene])
