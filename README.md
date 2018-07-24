@@ -26,7 +26,7 @@ you've set the bibs and names correctly as otherwise the data is not very good.
 
 To start a new race, use `--reset` command line option. Previous data is destroyed.
 Alternatively, you can take a backup of the `competitors.db` file and keep a safe copy
-of the results
+of the results.
 
 ## Requirements
 Tested with python 2.7. Requires asciimatics and sqlalchemy libraries, install
@@ -34,7 +34,6 @@ with `pip install asciimatics` and `pip install sqlobject`
 
 
 ## TODO
-- read names better into database
 - fix export
 - make a UI for multiple competitions, database already supports this
 - change competitor model to be many-to-many via a Participation table

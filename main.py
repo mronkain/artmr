@@ -79,7 +79,10 @@ class StateController(object):
 
 
     def add_competitor(self, competitor, number):
-        self._current_competitor = Competitor(name=competitor, number=int(number), competition=self._current_competition)
+        try: 
+            Competitor.selectBy(name=competitor, number=int(number), competition=self._current_competition).getOne()
+        except SQLObjectNotFound as e:            
+            self._current_competitor = Competitor(name=competitor, number=int(number), competition=self._current_competition)
     
     def add_split(self, time):
         s=Split(time=time, competition=self._current_competition)
@@ -526,7 +529,7 @@ def unicode_csv_reader(utf8_data, **kwargs):
 encoding = sys.getfilesystemencoding()
 argv = [unicode(x, encoding, 'ignore') for x in sys.argv[1:]]
 
-create_tables = not os.path.isfile('competitors.txt')
+create_tables = not os.path.isfile('competitors.db')
 
 while argv:
     arg = argv.pop()
@@ -554,7 +557,7 @@ if comps.count() == 0:
 else:
     controller.set_current_competition(None)
 
-if os.path.isfile('competitors.txt') and len(controller.get_current_competition().competitors) == 0:
+if os.path.isfile('competitors.txt'):
     tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
     for row in tsvin:
         controller.add_competitor(row[1], row[0])
