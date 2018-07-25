@@ -120,7 +120,7 @@ class StateController(object):
 
     def set_current_category(self, category):
         if category != None:
-            cat = self.find_or_create_category(category)
+            cat = Category.get(category)
             self._current_category = cat
         else:
             self._current_category = None
@@ -137,6 +137,11 @@ class StateController(object):
     def get_current_category(self):
         return self._current_category
 
+    def get_categories(self):
+        return Category.select()
+
+    def get_splits(self):
+        return Split.select(Competition.q.id==self._current_competition.id).orderBy('time')
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -155,11 +160,11 @@ class SplitListView(Frame):
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
-            ['10%', '15%','15%', '30%', '20%'],
+            ['5%', '12%', '8%', '10%', '35%', '20%'],
             self._get_summary(),
             name="splits",
             on_change=self._on_pick,
-            titles=['Rank', 'Finishing time', 'Number', 'Name', 'Category'])
+            titles=['Rank', 'Finishing time', 'Diff', 'Number', 'Name', 'Category'])
 
         self._start_list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
@@ -190,7 +195,13 @@ class SplitListView(Frame):
         self._time_label.value = "NOT STARTED"
         self._time_label.disabled = True
 
+
+        self._cat_label = Text("Selected Category [F2]:")
+        self._cat_label.value = "All"
+        self._cat_label.disabled = True
+
         layout0.add_widget(self._time_label)
+        layout0.add_widget(self._cat_label)
         layout1.add_widget(self._list_view, 0)
         layout1.add_widget(self._start_list_view, 1)
         layout0.add_widget(Divider())
@@ -214,10 +225,11 @@ class SplitListView(Frame):
             elif key == ord('e'):
                 self._match_split()
             elif key == ord('x'):
-                self._controller.set_current_category('X')
-                self._reload_list()
+                self._export()
             elif key == ord('m') or key == -2:
                 raise NextScene("Main Menu")
+            elif key == -3:
+                raise NextScene("CategorySelect")
 
             else:
                 super(SplitListView, self).process_event(event)
@@ -228,23 +240,27 @@ class SplitListView(Frame):
     def _get_summary(self):
         rows = []
         i=1
-        for split in self._controller.get_current_competition().splits:
+        leader = None
+        for split in self._controller.get_splits():
             if split.competitor:
-                name = split.competitor.name
-                number = str(split.competitor.number)
-                cat = split.competitor.category.name
-
                 if self._controller.get_current_category() != None and split.competitor.category != self._controller.get_current_category():
                     continue
 
+                name = split.competitor.name
+                number = str(split.competitor.number)
+                cat = split.competitor.category.name
             else:
                 name = ""
                 number = ""
                 cat = ""
 
+            if leader == None:
+                leader = split.time
+
             option = (
                 [   str(i),
                     str(split.time.replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0)),
+                    str(split.time.replace(microsecond=0) - leader.replace(microsecond=0)),
                     number,
                     name,
                     cat
@@ -320,6 +336,11 @@ class SplitListView(Frame):
                 self._time_label.value = str(datetime.now().replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0))
             else:
                 self._time_label.value = "NOT STARTED"
+    
+            if self._controller.get_current_category() == None:
+                self._cat_label.value = "All"
+            else:
+                self._cat_label.value = self._controller.get_current_category().name
 
         super(SplitListView, self)._update(frame_no)
 
@@ -327,27 +348,44 @@ class SplitListView(Frame):
         self._controller.set_current_split_competitor()
         self._reload_list()
 
-    def _get_export_data(self):
-        pass
-
     def _export(self):
-        list = self._get_export_data()
+        list = self._controller.get_splits()
 
-        with open('export.csv', 'wb') as f:
+        if self._controller.get_current_category() == None:
+            name = 'export_' + str(datetime.now()) + '.csv'
+        else:
+            name = 'export_' + self._controller.get_current_category().name + '_' + str(datetime.now()) + '.csv'
+
+        with open(name, 'wb') as f:
             writer = csv.writer(f)
 
-            writer.writerow(['rank', 'bib', '(((Start time)))',
-                '00:00:00',
-                strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._controller.get_current_competition().startTime))])
+            writer.writerow(['rank', 'time elapsed', 'difference', 'number', 'name', 'category'])
             rank = 1
-            for l in list:
+            leader = None
+            for split in list:
+                if split.competitor:
+                    if self._controller.get_current_category() != None and split.competitor.category != self._controller.get_current_category():
+                        continue
+
+                    name = split.competitor.name
+                    number = str(split.competitor.number)
+                    cat = split.competitor.category.name
+                else:
+                    name = ""
+                    number = ""
+                    cat = ""
+
+                if leader == None:
+                    leader = split.time
+
                 writer.writerow([
                     rank,
-                    l['bib'],
-                    #get_name(l['bib']).encode('utf-8'),
-                    (l['bib']).encode('utf-8'),
-                    strftime('%H:%M:%S', gmtime(l['finish_time'])),
-                    strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._controller.get_current_competition().startTime + l['finish_time']))
+                    str(split.time.replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0)),
+                    str(split.time.replace(microsecond=0) - leader.replace(microsecond=0)),
+                    #str(split.time),
+                    number,
+                    name.encode('utf-8'),
+                    cat
                 ])
                 rank += 1
 
@@ -557,12 +595,68 @@ class MenuListView(Frame):
     def _cancel():
         raise NextScene("Main")
 
+class CategorySelectListView(Frame):
+    def __init__(self, screen, controller):
+        super(CategorySelectListView, self).__init__(screen,
+                                          screen.height * 2 // 3,
+                                          screen.width * 2 // 3,
+                                          hover_focus=True,
+                                          title="Select Category",
+                                          reduce_cpu=True)
+        self._controller = controller
+        self._list_view = ListBox(
+            Widget.FILL_FRAME,
+            self._get_items(),
+            name="menu")
+        self._ok_button = Button("Ok", self._ok)
+        self._cancel_button = Button("Cancel", self._cancel)
+        layout = Layout([100], fill_frame=True)
+        self.add_layout(layout)
+        layout.add_widget(self._list_view)
+        layout2 = Layout([1, 1, 1, 1])
+        self.add_layout(layout2)
+        layout2.add_widget(Button("OK", self._ok), 0)
+        layout2.add_widget(Button("Cancel", self._cancel), 3)
+
+        self.fix()
+
+    def _get_items(self):
+        items = self._controller.get_categories()
+        opts = [('All', -1)]
+        for cat in items:
+            opts.append([cat.name, cat.id])
+
+        return opts
+
+    def _ok(self):
+        if self._list_view.value == -1:
+            self._controller.set_current_category(None)
+        else: 
+            self._controller.set_current_category(self._list_view.value)
+        
+        raise NextScene("Main")
+
+    def process_event(self, event):
+        if isinstance(event, KeyboardEvent):
+            key = event.key_code
+            if key == 10 or key == 32:
+                self._ok()
+            else:
+                super(CategorySelectListView, self).process_event(event)
+        else:
+            super(CategorySelectListView, self).process_event(event)
+
+
+    @staticmethod
+    def _cancel():
+        raise NextScene("Main")
 
 def demo(screen, id):
     scenes = [
         Scene([SplitListView(screen, controller)], -1, name="Main"),
         Scene([MenuListView(screen, controller)], -1, name="Main Menu"),
         Scene([StartListView(screen, controller)], -1, name="StartList"),
+        Scene([CategorySelectListView(screen, controller)], -1, name="CategorySelect")
     ]
 
     screen.play(scenes, stop_on_resize=True, start_scene=scenes[id])
