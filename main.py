@@ -33,7 +33,7 @@ class Competition(SQLObject):
 class Competitor(SQLObject):
     name = UnicodeCol(default=None)
     contact = StringCol(default=None)
-    
+
     number = IntCol(default=None)
     starting = BoolCol(default=False)
 
@@ -57,6 +57,7 @@ class StateController(object):
         self._current_competition = None
         self._current_competitor = None
         self._current_split = None
+        self._current_category = None
 
     def get_current_competition(self):
         return self._current_competition
@@ -71,25 +72,26 @@ class StateController(object):
         comp = Competition(name=name, place="somewhere", active=True)
         self._current_competition = comp
 
-    def set_current_competitor(self, competitor):    
-        try: 
+    def set_current_competitor(self, competitor):
+        try:
             self._current_competitor = Competitor.selectBy(id=competitor).getOne()
         except SQLObjectNotFound as e:
             self._current_competitor = None
 
-    def set_current_split(self, split):    
-        try: 
+    def set_current_split(self, split):
+        try:
             self._current_split = Split.selectBy(id=split).getOne()
         except SQLObjectNotFound as e:
             self._current_split = None
 
 
-    def add_competitor(self, competitor, number):
-        try: 
+    def add_competitor(self, competitor, number, category):
+        try:
             Competitor.selectBy(name=competitor, number=int(number), competition=self._current_competition).getOne()
-        except SQLObjectNotFound as e:            
-            self._current_competitor = Competitor(name=competitor, number=int(number), competition=self._current_competition)
-    
+        except SQLObjectNotFound as e:
+            cat = self.find_or_create_category(category)
+            self._current_competitor = Competitor(name=competitor, number=int(number), competition=self._current_competition, category=cat)
+
     def add_split(self, time):
         s=Split(time=time, competition=self._current_competition, competitor=self._current_competitor)
         return s.id
@@ -114,7 +116,27 @@ class StateController(object):
 
     def set_current_split_competitor(self):
         if self._current_competitor and self._current_split:
-            self._current_split.competitor = self._current_competitor    
+            self._current_split.competitor = self._current_competitor
+
+    def set_current_category(self, category):
+        if category != None:
+            cat = self.find_or_create_category(category)
+            self._current_category = cat
+        else:
+            self._current_category = None
+
+
+    def find_or_create_category(self, category):
+        try:
+            cat = Category.selectBy(name=category).getOne()
+        except SQLObjectNotFound:
+            cat = Category(name=category)
+
+        return cat
+
+    def get_current_category(self):
+        return self._current_category
+
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -128,19 +150,19 @@ class SplitListView(Frame):
         logging.basicConfig(filename='example.log',level=logging.INFO)
 
         self._controller = controller
-        
+
         self._last_frame = 0
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
-            Widget.FILL_FRAME, 
-            ['10%', '25%','25%', '30%'],
+            Widget.FILL_FRAME,
+            ['10%', '15%','15%', '30%', '20%'],
             self._get_summary(),
             name="splits",
             on_change=self._on_pick,
-            titles=['Rank', 'Finishing time', 'Number', 'Name'])
+            titles=['Rank', 'Finishing time', 'Number', 'Name', 'Category'])
 
         self._start_list_view = MultiColumnListBox(
-            Widget.FILL_FRAME, 
+            Widget.FILL_FRAME,
             ['50%','50%'],
             self._get_competitor_summary(),
             name="competitors",
@@ -192,7 +214,8 @@ class SplitListView(Frame):
             elif key == ord('e'):
                 self._match_split()
             elif key == ord('x'):
-                pass#self._export()
+                self._controller.set_current_category('X')
+                self._reload_list()
             elif key == ord('m') or key == -2:
                 raise NextScene("Main Menu")
 
@@ -209,15 +232,22 @@ class SplitListView(Frame):
             if split.competitor:
                 name = split.competitor.name
                 number = str(split.competitor.number)
+                cat = split.competitor.category.name
+
+                if self._controller.get_current_category() != None and split.competitor.category != self._controller.get_current_category():
+                    continue
+
             else:
                 name = ""
                 number = ""
+                cat = ""
 
             option = (
                 [   str(i),
                     str(split.time.replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0)),
                     number,
-                    name
+                    name,
+                    cat
                     ],
                 split.id
             )
@@ -231,7 +261,7 @@ class SplitListView(Frame):
         for competitor in self._controller.get_present_competitors():
             if len(competitor.splits) == 0:
                 option = (
-                    [   str(competitor.number),                    
+                    [   str(competitor.number),
                         competitor.name
                     ],
                     competitor.id
@@ -246,7 +276,7 @@ class SplitListView(Frame):
         self._edit_button.disabled = self._list_view.value is None
 
     def _on_comp_pick(self):
-        self._controller.set_current_competitor(self._start_list_view.value)        
+        self._controller.set_current_competitor(self._start_list_view.value)
 
     def _reload_list(self):
         val = self._list_view.value
@@ -259,8 +289,9 @@ class SplitListView(Frame):
         if self._controller.get_current_competition().startTime == None:
             self._start()
         else:
-            split_id = self._controller.add_split(datetime.now())
-            
+            split = datetime.now()
+            split_id = self._controller.add_split(split)
+
             self._reload_list()
             self._list_view.value = split_id
             self._on_pick
@@ -343,11 +374,11 @@ class StartListView(Frame):
 
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
-            ['15%', '15%','70%'],
+            ['15%', '15%','55%', '15%'],
             self._get_summary(),
             name="start list",
             on_change=self._on_pick,
-            titles=['Number', 'Call-up', 'Name'])
+            titles=['Number', 'Call-up', 'Name', 'Category'])
         self._splits_button = Button("Timing", self._splits)
         self._edit_button = Button("Sort ABC", self._toggle_sort)
         self._present_button = Button("Present", self._starting)
@@ -370,27 +401,30 @@ class StartListView(Frame):
 
     def _get_summary(self):
         rows = []
-        for x in self._controller.get_competitors(self._sort):
-            if x.starting:
+        for competitor in self._controller.get_competitors(self._sort):
+            if competitor.starting:
                 present = "[X]"
             else:
                 present = "[O]"
 
             if self._sort == "123":
                 option = (
-                    [   str(x.number),
+                    [   str(competitor.number),
                         present,
-                        x.name
+                        competitor.name,
+                        competitor.category.name
                     ],
-                    x.id
+                    competitor.id
                 )
             else:
                 option = (
-                    [   x.name,
+                    [   competitor.name,
                         present,
-                        str(x.number)
+                        str(competitor.number),
+                        competitor.category.name
+
                     ],
-                    x.id
+                    competitor.id
                 )
 
             rows.append(option)
@@ -415,7 +449,7 @@ class StartListView(Frame):
         self._reload_list()
 
     def _starting(self):
-        self._controller.get_current_competitor().starting = not self._controller.get_current_competitor().starting        
+        self._controller.get_current_competitor().starting = not self._controller.get_current_competitor().starting
         self._reload_list()
 
     def _splits(self):
@@ -423,7 +457,7 @@ class StartListView(Frame):
 
     def process_event(self, event):
         if isinstance(event, KeyboardEvent):
-            key = event.key_code            
+            key = event.key_code
             if key == ord('s'):
                 self._toggle_sort()
             elif key == ord('p') or key == 32:
@@ -559,6 +593,7 @@ if create_tables:
     Competition.createTable()
     Competitor.createTable()
     Split.createTable()
+    Category.createTable()
 
 controller = StateController()
 
@@ -566,7 +601,7 @@ comps = controller.get_competitions()
 
 if comps.count() == 0:
     name = raw_input("Enter your competition name: [blank] ") or "~~You really should have a name for these things~~"
-    controller.create_competition(name)    
+    controller.create_competition(name)
 
 else:
     controller.set_current_competition(None)
@@ -574,7 +609,7 @@ else:
 if os.path.isfile('competitors.txt'):
     tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
     for row in tsvin:
-        controller.add_competitor(row[1], row[0])
+        controller.add_competitor(row[1], row[0], row[2])
 
 
 if controller.get_current_competition().startTime == None:

@@ -1,3 +1,2 @@
-Timer2
 asciimatics>=1.9.0
 sqlobject
