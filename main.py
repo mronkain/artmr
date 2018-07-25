@@ -352,9 +352,12 @@ class SplitListView(Frame):
         list = self._controller.get_splits()
 
         if self._controller.get_current_category() == None:
-            name = 'export_' + str(datetime.now()) + '.csv'
+            name = 'results_' + str(datetime.now()) + '.csv'
         else:
-            name = 'export_' + self._controller.get_current_category().name + '_' + str(datetime.now()) + '.csv'
+            name = 'results_' + self._controller.get_current_category().name + '_' + str(datetime.now()) + '.csv'
+
+        keepcharacters = (' ','.','_', '-')
+        name = "".join(c for c in name if c.isalnum() or c in keepcharacters).rstrip()
 
         with open(name, 'wb') as f:
             writer = csv.writer(f)
@@ -382,7 +385,6 @@ class SplitListView(Frame):
                     rank,
                     str(split.time.replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0)),
                     str(split.time.replace(microsecond=0) - leader.replace(microsecond=0)),
-                    #str(split.time),
                     number,
                     name.encode('utf-8'),
                     cat
