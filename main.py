@@ -33,9 +33,11 @@ class Competition(SQLObject):
 class Competitor(SQLObject):
     name = UnicodeCol(default=None)
     contact = StringCol(default=None)
+    
     number = IntCol(default=None)
     starting = BoolCol(default=False)
 
+    category = ForeignKey('Category')
     competition = ForeignKey('Competition')
     splits = MultipleJoin('Split')
 
@@ -44,6 +46,10 @@ class Split(SQLObject):
     time = DateTimeCol(default=None)
     competitor = ForeignKey('Competitor', default=None)
     competition = ForeignKey('Competition')
+
+class Category(SQLObject):
+    name = UnicodeCol(default=None)
+    competitors = MultipleJoin('Competitor')
 
 # global state singleton to keep track of what is being shown / edited
 class StateController(object):
@@ -559,7 +565,7 @@ controller = StateController()
 comps = controller.get_competitions()
 
 if comps.count() == 0:
-    name = raw_input("Enter your competition name: [blank]") or "~~You really should have a name for these things~~"
+    name = raw_input("Enter your competition name: [blank] ") or "~~You really should have a name for these things~~"
     controller.create_competition(name)    
 
 else:
