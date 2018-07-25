@@ -30,8 +30,7 @@ of the results.
 
 ## Requirements
 Tested with python 2.7. Requires asciimatics and sqlalchemy libraries, install
-with `pip install asciimatics` and `pip install sqlobject`
-
+with `pip install -r requirements.txt`.
 
 ## TODO
 - fix export

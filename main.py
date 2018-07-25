@@ -333,7 +333,7 @@ class StartListView(Frame):
                                        title="TIMER2 v" + version + " - START LIST for " + controller.get_current_competition().name)
         self._controller = controller
         self._last_frame = 0
-        self._sort = "abc"
+        self._sort = "123"
 
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
@@ -370,13 +370,23 @@ class StartListView(Frame):
             else:
                 present = "[O]"
 
-            option = (
-                [   str(x.number),
-                    present,
-                    x.name
-                ],
-                x.id
-            )
+            if self._sort == "123":
+                option = (
+                    [   str(x.number),
+                        present,
+                        x.name
+                    ],
+                    x.id
+                )
+            else:
+                option = (
+                    [   x.name,
+                        present,
+                        str(x.number)
+                    ],
+                    x.id
+                )
+
             rows.append(option)
 
         return rows
