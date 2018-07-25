@@ -85,7 +85,7 @@ class StateController(object):
             self._current_competitor = Competitor(name=competitor, number=int(number), competition=self._current_competition)
     
     def add_split(self, time):
-        s=Split(time=time, competition=self._current_competition)
+        s=Split(time=time, competition=self._current_competition, competitor=self._current_competitor)
         return s.id
 
     def change_number(self, split_id):
