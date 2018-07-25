@@ -10,7 +10,8 @@ Use the Start List view on call-up to get an actual start list.
 
 Start the race with the Start (`space` or `s`) button from the Timing screen
 and add a new split/finish time with Split (`space` or `s`). Add a competitor bib number
-with Edit (`e`).
+with Edit (`e`). Jump between start list and splits with Tab. Category filter can be
+accessed with F2.
 
 Start time and splits are saved on disk so you can quit the application and data
 is kept. Times are kept only in whole seconds, more accuracy does not make much
@@ -19,7 +20,7 @@ sense in manual timing.
 Competitor names should be added in advance from `competitors.txt`, format is `bib,name`,
 one per line. This can be edited while the timer is running, application restart
 is needed to refresh the names. See `competitors.txt.example`. Competitor categories will be
-read from this file
+read from this file.
 
 Data can be export to a csv file with `x`. This creates `export_[category]_[time].csv` file in
 the current directory in format `rank,elapsed time,difference,number,name,category`. Make sure
