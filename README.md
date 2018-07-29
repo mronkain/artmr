@@ -34,10 +34,12 @@ of the results.
 
 
 ## Requirements
-Tested with python 2.7. Requires asciimatics and sqlalchemy libraries, install
+Tested with python 2.7 on Linux and Mac. Requires asciimatics and sqlalchemy libraries, install
 with `pip install -r requirements.txt`.
 
 ## TODO
 - make a UI for multiple competitions, database already supports this
 - change competitor model to be many-to-many via a Participation table
+- better support for lap timing
+- Python3 & Windows support
 - automatic data export/sync to other services
