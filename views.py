@@ -28,7 +28,7 @@ class SplitListView(Frame):
                                        hover_focus=True,
                                        title="TIMER2 v" + VERSION + " - RESULTS for " + controller.get_current_competition().name)
 
-        logging.basicConfig(filename='example.log',level=logging.INFO)
+        #logging.basicConfig(filename='example.log',level=logging.INFO)
 
         self._controller = controller
 
@@ -304,14 +304,14 @@ class StartListView(Frame):
 
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
-            ['55%', '15%','15%', '15%'],
+            ['15%', '55%','15%', '15%'],
             self._get_summary(),
             name="start list",
             on_change=self._on_pick,
-            titles=['Name', 'Starting', 'Number', 'Category'])
+            titles=['Number', 'Name', 'Category', 'Starting'])
         self._splits_button = Button("Timing", self._splits)
-        self._edit_button = Button("Sort ABC", self._toggle_sort)
-        self._present_button = Button("Tgl starting", self._starting)
+        self._edit_button = Button("Tgl Sort", self._toggle_sort)
+        self._present_button = Button("Tgl Starting", self._starting)
         self._quit_button = Button("Quit", self._quit)
         self._start_time = None
 
@@ -339,25 +339,14 @@ class StartListView(Frame):
             else:
                 present = "[O]"
 
-            if self._sort == "123":
-                option = (
-                    [   str(competitor.number),
-                        present,
-                        competitor.name,
-                        competitor.category.name
-                    ],
-                    competitor.id
-                )
-            else:
-                option = (
-                    [   competitor.name,
-                        present,
-                        str(competitor.number),
-                        competitor.category.name
-
-                    ],
-                    competitor.id
-                )
+            option = (
+                [   str(competitor.number),
+                    competitor.name,
+                    competitor.category.name,
+                    present
+                ],
+                competitor.id
+            )
 
             rows.append(option)
 

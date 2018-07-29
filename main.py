@@ -120,7 +120,6 @@ def demo(screen, scene, default_to_start_list):
     if scene == None and default_to_start_list:
         scene = scenes[2]
     
-
     screen.play(scenes, stop_on_resize=True, start_scene=scene)
 
 def unicode_csv_reader(utf8_data, **kwargs):
