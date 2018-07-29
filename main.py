@@ -15,9 +15,9 @@ import os.path
 import sys
 import logging
 import csv
-from random import randrange
 
 version = '0.5'
+DB_FILE = 'results.db'
 
 class Competition(SQLObject):
     name = UnicodeCol()
@@ -184,28 +184,39 @@ class SplitListView(Frame):
         self._start_button.disabled = (self._controller.get_current_competition().startTime != None)
         self._split_button.disabled = (self._controller.get_current_competition().startTime == None)
 
+        layout = Layout([20, 10, 70])
         layout0 = Layout([100])
         layout1 = Layout([75,25], fill_frame=True)
         layout2 = Layout([100])
+        self.add_layout(layout)
         self.add_layout(layout0)
         self.add_layout(layout1)
         self.add_layout(layout2)
 
-        self._time_label = Text("Elapsed Time:")
-        self._time_label.value = "NOT STARTED"
-        self._time_label.disabled = True
+        self._time_label = Label("Elapsed Time:")
+        self._time_label_value = Label("NOT STARTED")
 
-
-        self._cat_label = Text("Selected Category [F2]:")
-        self._cat_label.value = "All"
+        self._cat_label = Label("Selected Category [F2]:")
+        self._cat_label_value = Label("All")
         self._cat_label.disabled = True
 
-        layout0.add_widget(self._time_label)
-        layout0.add_widget(self._cat_label)
+        layout.add_widget(self._time_label,0)
+        layout.add_widget(self._time_label_value, 1)
+        layout.add_widget(self._cat_label, 0)
+        layout.add_widget(self._cat_label_value, 1)
+        layout1.add_widget(Label("Start list"), 1)
         layout1.add_widget(self._list_view, 0)
         layout1.add_widget(self._start_list_view, 1)
         layout0.add_widget(Divider())
         layout2.add_widget(Divider())
+
+        if self._controller.get_current_competition().startTime == None:
+            self._info_label = Label("Press Space / Start to begin timing. Press F2 for category filter.")
+        else: 
+            self._info_label = Label("Create new splits with S / Space. Select competitor first or add a competitor to a split with Edit / E. Press F2 for category filter. Export with X.")
+
+        layout2.add_widget(self._info_label)
+
         layout3 = Layout([1, 1, 1, 1, 1])
         self.add_layout(layout3)
         layout3.add_widget(self._start_list_button, 0)
@@ -300,6 +311,7 @@ class SplitListView(Frame):
         self._list_view.value = val
 
         self._start_list_view.options = self._get_competitor_summary()
+        self._start_list_view.value = None
 
     def _add(self):
         if self._controller.get_current_competition().startTime == None:
@@ -324,6 +336,7 @@ class SplitListView(Frame):
         self._reload_list()
 
     def _start(self):
+        self._info_label.text = "Create new splits with S / Space. Select competitor first or add a competitor to a split with Edit / E. Press F2 for category filter. Export with X."
         if self._controller.get_current_competition().startTime == None:
             self._controller.start_current_competition(datetime.now())
 
@@ -333,14 +346,14 @@ class SplitListView(Frame):
     def _update(self, frame_no):
         if frame_no - self._last_frame >= self.frame_update_count or self._last_frame == 0:
             if self._controller.get_current_competition().startTime != None:
-                self._time_label.value = str(datetime.now().replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0))
+                self._time_label_value.text = str(datetime.now().replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0))
             else:
-                self._time_label.value = "NOT STARTED"
+                self._time_label_value.text = "NOT STARTED"
     
             if self._controller.get_current_category() == None:
-                self._cat_label.value = "All"
+                self._cat_label_value.text = "All"
             else:
-                self._cat_label.value = self._controller.get_current_category().name
+                self._cat_label_value.text = self._controller.get_current_category().name
 
         super(SplitListView, self)._update(frame_no)
 
@@ -352,14 +365,14 @@ class SplitListView(Frame):
         list = self._controller.get_splits()
 
         if self._controller.get_current_category() == None:
-            name = 'results_' + str(datetime.now()) + '.csv'
+            fname = self._controller.get_current_competition().name + '_' + str(datetime.now()) + '.csv'
         else:
-            name = 'results_' + self._controller.get_current_category().name + '_' + str(datetime.now()) + '.csv'
+            fname = self._controller.get_current_competition().name + '_' + self._controller.get_current_category().name + '_' + str(datetime.now()) + '.csv'
 
         keepcharacters = (' ','.','_', '-')
-        name = "".join(c for c in name if c.isalnum() or c in keepcharacters).rstrip()
+        fname = "".join(c for c in fname if c.isalnum() or c in keepcharacters).rstrip()
 
-        with open(name, 'wb') as f:
+        with open(fname, 'wb') as f:
             writer = csv.writer(f)
 
             writer.writerow(['rank', 'time elapsed', 'difference', 'number', 'name', 'category'])
@@ -390,11 +403,12 @@ class SplitListView(Frame):
                     cat
                 ])
                 rank += 1
+    
+        self._info_label.text = "Exported to " + fname
 
     @property
     def frame_update_count(self):
-        # Refresh once every 2 seconds by default.
-        return 20
+        return 5
 
     @staticmethod
     def _quit():
@@ -410,24 +424,26 @@ class StartListView(Frame):
                                        title="TIMER2 v" + version + " - START LIST for " + controller.get_current_competition().name)
         self._controller = controller
         self._last_frame = 0
-        self._sort = "123"
+        self._sort = "alpha"
 
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
-            ['15%', '15%','55%', '15%'],
+            ['55%', '15%','15%', '15%'],
             self._get_summary(),
             name="start list",
             on_change=self._on_pick,
-            titles=['Number', 'Call-up', 'Name', 'Category'])
+            titles=['Name', 'Starting', 'Number', 'Category'])
         self._splits_button = Button("Timing", self._splits)
         self._edit_button = Button("Sort ABC", self._toggle_sort)
-        self._present_button = Button("Present", self._starting)
+        self._present_button = Button("Tgl starting", self._starting)
         self._quit_button = Button("Quit", self._quit)
         self._start_time = None
 
         layout = Layout([100], fill_frame=True)
         self.add_layout(layout)
+        self._info_label = Label("Use Space / Present to confirm starting competitors. Go to Timing page to start the race.")
         layout.add_widget(self._list_view)
+        layout.add_widget(self._info_label)
         layout.add_widget(Divider())
         layout2 = Layout([1, 1, 1, 1])
         self.add_layout(layout2)
@@ -510,30 +526,6 @@ class StartListView(Frame):
         else:
             super(StartListView, self).process_event(event)
 
-
-
-    def _get_export_data(self):
-        pass
-
-    def _export(self):
-        list = self._get_export_data()
-
-        with open('start_list.csv', 'wb') as f:
-            writer = csv.writer(f)
-
-            writer.writerow(['rank', 'bib', '(((Start time)))',
-                '00:00:00',
-                strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._start_time))])
-            rank = 1
-            for l in list:
-                writer.writerow([
-                    rank,
-                    l['bib'],
-                    (l['bib']).encode('utf-8'),
-                    strftime('%H:%M:%S', gmtime(l['finish_time'])),
-                    strftime("%Y-%m-%d %H:%M:%S %Z", localtime(self._start_time + l['finish_time']))
-                ])
-                rank += 1
 
     @property
     def frame_update_count(self):
@@ -673,17 +665,17 @@ def unicode_csv_reader(utf8_data, **kwargs):
 encoding = sys.getfilesystemencoding()
 argv = [unicode(x, encoding, 'ignore') for x in sys.argv[1:]]
 
-create_tables = not os.path.isfile('competitors.db')
+create_tables = not os.path.isfile(DB_FILE)
 
 while argv:
     arg = argv.pop()
     if arg == '--reset':
         confirm = raw_input("Delete existing competitions? All data will removed. [y/N] ")
-        if confirm == 'y' and os.path.exists("competitors.db"):
-            os.remove("competitors.db")
+        if confirm == 'y' and os.path.exists(DB_FILE):
+            os.remove(DB_FILE)
             create_tables = True
 
-sqlhub.processConnection = connectionForURI("sqlite://" + os.path.abspath('competitors.db'))
+sqlhub.processConnection = connectionForURI("sqlite://" + os.path.abspath(DB_FILE))
 
 if create_tables:
     Competition.createTable()
@@ -698,6 +690,7 @@ comps = controller.get_competitions()
 if comps.count() == 0:
     name = raw_input("Enter your competition name: [blank] ") or "~~You really should have a name for these things~~"
     controller.create_competition(name)
+    new = True
 
 else:
     controller.set_current_competition(None)
@@ -705,8 +698,13 @@ else:
 if os.path.isfile('competitors.txt'):
     tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
     for row in tsvin:
-        controller.add_competitor(row[1], row[0], row[2])
-
+        if len(row) > 2:
+            controller.add_competitor(row[1], row[0], row[2] or "")
+        else:
+            controller.add_competitor(row[1], row[0], "")
+elif new:
+    print "Create a competitors.txt file with the start list in format 'number,name,category'. See competitors.txt.example."
+    sys.exit(0)
 
 if controller.get_current_competition().startTime == None:
     last_scene = 2
