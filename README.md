@@ -9,7 +9,7 @@ on asciimatics contact list demo and inspired by classic DOS utilities.
 You should have a start list in  `competitors.txt`, format is `bib,name,category`,
 one per line. This can be edited while the timer is running, application restart
 is needed to refresh the names. See `competitors.txt.example`. Catogries will be 
-added automatically.
+added automatically but can be blank.
 
 Use the Start List view to mark actually starting competitors and then continue on
 to the Timing screen.
@@ -35,7 +35,12 @@ of the results.
 
 ## Requirements
 Tested with python 2.7 on Linux and Mac. Requires asciimatics and sqlalchemy libraries, install
-with `pip install -r requirements.txt`.
+with `pip install -r requirements.txt`. If you encounter errors about "Unknown locale: UTF-8, add 
+these lines to your `~/.bash_profile` :
+```
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+```
 
 ## TODO
 - make a UI for multiple competitions, database already supports this
