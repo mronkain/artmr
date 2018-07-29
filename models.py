@@ -25,6 +25,7 @@ class Competitor(SQLObject):
 
 class Split(SQLObject):
     split_info = UnicodeCol(default="Finish") # lap
+    lap = IntCol(default=None)
     time = DateTimeCol(default=None)
     competitor = ForeignKey('Competitor', default=None)
     competition = ForeignKey('Competition')
