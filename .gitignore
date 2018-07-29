@@ -1,3 +1,4 @@
 results.db
 competitors.txt
 .vscode
+*.pyc
