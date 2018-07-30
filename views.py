@@ -26,6 +26,7 @@ class SplitListView(Frame):
                                        screen.width,
                                        on_load=self._reload_list,
                                        hover_focus=True,
+                                       reduce_cpu=True,
                                        title="TIMER2 v" + VERSION + " - RESULTS for " + controller.get_current_competition().name)
 
         #logging.basicConfig(filename='example.log',level=logging.INFO)
@@ -87,9 +88,12 @@ class SplitListView(Frame):
         layout2.add_widget(Divider())
 
         if self._controller.get_current_competition().startTime == None:
-            self._info_label = Label("Press Space / Start to begin timing. Press F2 for category filter.")
+            self._info_label_text = "Press Space / Start to begin timing. Press F2 for category filter."
         else: 
-            self._info_label = Label("Create new splits with S / Space. Select competitor first or add a competitor to a split with Edit / E. Press F2 for category filter. Export with X.")
+            self._info_label_text = "Create new splits with S / Space. Select competitor first or add a competitor to a split with Edit / E. Press F2 for category filter. Export with X."
+
+        self._info_label = Label(self._info_label_text)
+        self._info_label_reset = None
 
         layout2.add_widget(self._info_label)
 
@@ -212,7 +216,9 @@ class SplitListView(Frame):
         self._reload_list()
 
     def _start(self):
-        self._info_label.text = "Create new splits with S / Space. Select competitor first or add a competitor to a split with Edit / E. Press F2 for category filter. Export with X."
+        self._info_label_text = "Create new splits with S / Space. Select competitor first or add a competitor to a split with Edit / E. Press F2 for category filter. Export with X."
+        self._info_label.text = self._info_label_text
+
         if self._controller.get_current_competition().startTime == None:
             self._controller.start_current_competition(datetime.now())
 
@@ -230,6 +236,12 @@ class SplitListView(Frame):
                 self._cat_label_value.text = "All"
             else:
                 self._cat_label_value.text = self._controller.get_current_category().name
+
+            if self._info_label_reset == 0:
+                self._info_label.text = self._info_label_text
+                self._info_label_reset = None
+            elif self._info_label_reset != None:
+                self._info_label_reset = self._info_label_reset -1
 
         super(SplitListView, self)._update(frame_no)
 
@@ -280,11 +292,12 @@ class SplitListView(Frame):
                 ])
                 rank += 1
     
-        self._info_label.text = "Exported to " + fname
+        self._info_label.text = "Exported to '" + fname + "'."
+        self._info_label_reset = 20
 
     @property
     def frame_update_count(self):
-        return 5
+        return 40
 
     @staticmethod
     def _quit():
