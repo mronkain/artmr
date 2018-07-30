@@ -1,6 +1,6 @@
-# Timer2
+# artmr
 
-Timer2 is a simple text-only, fully off-line timing application designed for
+artmr is a simple text-only, fully off-line timing application designed for
 small-scale manual competition timing. Heavily based (i.e. shamelessly copied)
 on asciimatics contact list demo and inspired by classic DOS utilities.
 

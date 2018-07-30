@@ -27,7 +27,7 @@ class SplitListView(Frame):
                                        on_load=self._reload_list,
                                        hover_focus=True,
                                        reduce_cpu=True,
-                                       title="TIMER2 v" + VERSION + " - RESULTS for " + controller.get_current_competition().name)
+                                       title="artmr v" + VERSION + " - RESULTS for " + controller.get_current_competition().name)
 
         #logging.basicConfig(filename='example.log',level=logging.INFO)
 
@@ -310,7 +310,7 @@ class StartListView(Frame):
                                        screen.width,
                                        on_load=self._reload_list,
                                        hover_focus=True,
-                                       title="TIMER2 v" + VERSION + " - START LIST for " + controller.get_current_competition().name)
+                                       title="artmr v" + VERSION + " - START LIST for " + controller.get_current_competition().name)
         self._controller = controller
         self._last_frame = 0
         self._sort = "alpha"
