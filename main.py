@@ -161,6 +161,7 @@ if comps.count() == 0:
 
 else:
     controller.set_current_competition(None)
+    new = False
 
 if os.path.isfile('competitors.txt'):
     tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
@@ -169,7 +170,7 @@ if os.path.isfile('competitors.txt'):
             controller.add_competitor(row[1], row[0], row[2])
         else:
             controller.add_competitor(row[1], row[0], "")
-elif new:
+elif new or controller.get_competitors("abc").count() == 0:
     print "Create a competitors.txt file with the start list in format 'number,name,category'. See competitors.txt.example."
     sys.exit(0)
 
