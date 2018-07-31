@@ -8,7 +8,7 @@ setuptools.setup(
     version="0.9.0",
     author="mronkain",
     author_email="mrnk@iki.fi",
-    description="Text-based offline race timing application",
+    description="Offline race timing console application",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/mronkain/artmr",
