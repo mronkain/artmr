@@ -17,7 +17,7 @@ import sys
 import logging
 import csv
 
-VERSION = '0.9'
+VERSION = '1.0-BETA'
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):

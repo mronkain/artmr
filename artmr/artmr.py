@@ -16,7 +16,10 @@ import csv
 from os.path import expanduser
 import argparse
 
-VERSION = '0.9'
+VERSION = '1.0-BETA'
+
+DESCRIPTION = 'artmr %ss' % VERSION
+
 SCHEMA_VERSION = '1'
 DB_PATH = expanduser("~") + '/.artmr/'
 DB_FILE = 'results_%s.db' % SCHEMA_VERSION
@@ -153,7 +156,7 @@ def main():
 
     create_tables = not os.path.isfile(os.path.join(DB_PATH, DB_FILE))
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("--reset", help="Reset current competition", action="store_true")
     parser.add_argument("-c", "--competitors", help="Read competitors from file. File should be a csv with '[number],[competitor name],[competitor category]'. See homepage for an example file.")
     args = parser.parse_args()

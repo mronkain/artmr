@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="artmr",
-    version="0.9.0",
+    version="1.0-beta",
     author="mronkain",
     author_email="mrnk@iki.fi",
     description="Offline race timing console application",
