@@ -1,2 +1,2 @@
-asciimatics>=1.8.1
+asciimatics>=1.9
 sqlobject

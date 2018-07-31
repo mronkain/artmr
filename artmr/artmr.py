@@ -5,17 +5,21 @@ from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
 
 from sqlobject import connectionForURI, sqlhub, SQLObjectNotFound, AND
 
-from models import Competition, Competitor, Split, Category
+from .models import Competition, Competitor, Split, Category
 
-from views import SplitListView, MenuListView, StartListView, CategorySelectListView
+from .views import SplitListView, MenuListView, StartListView, CategorySelectListView, LoadStartListView
 
 import os.path
 import sys
 import logging
 import csv
+from os.path import expanduser
+import argparse
 
-VERSION = '0.5'
-DB_FILE = 'results.db'
+VERSION = '0.9'
+SCHEMA_VERSION = '1'
+DB_PATH = expanduser("~") + '/.artmr/'
+DB_FILE = 'results_%s.db' % SCHEMA_VERSION
 
 # global state singleton to keep track of what is being shown / edited
 class StateController(object):
@@ -108,13 +112,33 @@ class StateController(object):
 
     def get_splits(self):
         return Split.select(Competition.q.id==self._current_competition.id).orderBy('time')
+    
+    def load_competitors(self, filename):
+        def unicode_csv_reader(utf8_data, **kwargs):
+            # csv.py doesn't do Unicode; encode temporarily as UTF-8:
+            csv_reader = csv.reader(utf8_data, **kwargs)
 
-def demo(screen, scene, default_to_start_list):
+            for row in csv_reader:
+                yield [unicode(cell, 'utf-8') for cell in row]
+
+        tsvin = unicode_csv_reader(open(filename), delimiter=',')
+        for row in tsvin:
+            try:
+                if len(row) > 2:
+                    self.add_competitor(row[1], row[0], row[2])
+                elif len(row) > 1:
+                    self.add_competitor(row[1], row[0], "")
+            except:
+                pass
+
+
+def demo(screen, scene, default_to_start_list, controller):
     scenes = [
         Scene([SplitListView(screen, controller)], -1, name="Main"),
         Scene([MenuListView(screen, controller)], -1, name="Main Menu"),
         Scene([StartListView(screen, controller)], -1, name="StartList"),
-        Scene([CategorySelectListView(screen, controller)], -1, name="CategorySelect")
+        Scene([CategorySelectListView(screen, controller)], -1, name="CategorySelect"),
+        Scene([LoadStartListView(screen, controller)], -1, name="LoadStartList")
     ]
 
     if scene == None and default_to_start_list:
@@ -122,64 +146,54 @@ def demo(screen, scene, default_to_start_list):
     
     screen.play(scenes, stop_on_resize=True, start_scene=scene)
 
-def unicode_csv_reader(utf8_data, **kwargs):
-    # csv.py doesn't do Unicode; encode temporarily as UTF-8:
-    csv_reader = csv.reader(utf8_data, **kwargs)
 
-    for row in csv_reader:
-        yield [unicode(cell, 'utf-8') for cell in row]
+def main():
+    if not os.path.isdir(DB_PATH):
+        os.mkdir(DB_PATH)
 
-encoding = sys.getfilesystemencoding()
-argv = [unicode(x, encoding, 'ignore') for x in sys.argv[1:]]
+    create_tables = not os.path.isfile(os.path.join(DB_PATH, DB_FILE))
 
-create_tables = not os.path.isfile(DB_FILE)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--reset", help="Reset current competition", action="store_true")
+    parser.add_argument("-c", "--competitors", help="Read competitors from file. File should be a csv with '[number],[competitor name],[competitor category]'. See homepage for an example file.")
+    args = parser.parse_args()
 
-while argv:
-    arg = argv.pop()
-    if arg == '--reset':
+    if args.reset:
         confirm = raw_input("Delete existing competitions? All data will removed. [y/N] ")
-        if confirm == 'y' and os.path.exists(DB_FILE):
-            os.remove(DB_FILE)
+        if confirm == 'y' and os.path.exists(os.path.join(DB_PATH, DB_FILE)):
+            os.remove(os.path.join(DB_PATH, DB_FILE))
             create_tables = True
 
-sqlhub.processConnection = connectionForURI("sqlite://" + os.path.abspath(DB_FILE))
+    sqlhub.processConnection = connectionForURI("sqlite://" + os.path.join(DB_PATH, DB_FILE))
 
-if create_tables:
-    Competition.createTable()
-    Competitor.createTable()
-    Split.createTable()
-    Category.createTable()
+    if create_tables:
+        Competition.createTable()
+        Competitor.createTable()
+        Split.createTable()
+        Category.createTable()
 
-controller = StateController()
+    controller = StateController()
 
-comps = controller.get_competitions()
+    comps = controller.get_competitions()
 
-if comps.count() == 0:
-    name = raw_input("Enter your competition name: [blank] ") or "~~You really should have a name for these things~~"
-    controller.create_competition(name)
-    new = True
+    if comps.count() == 0:
+        name = raw_input("Enter your competition name: [blank] ") or "~~You really should have a name for these things~~"
+        controller.create_competition(name)
+        new = True
 
-else:
-    controller.set_current_competition(None)
-    new = False
+    else:
+        controller.set_current_competition(None)
+        new = False
 
-if os.path.isfile('competitors.txt'):
-    tsvin = unicode_csv_reader(open('competitors.txt'), delimiter=',')
-    for row in tsvin:
-        if len(row) > 2:
-            controller.add_competitor(row[1], row[0], row[2])
-        else:
-            controller.add_competitor(row[1], row[0], "")
-elif new or controller.get_competitors("abc").count() == 0:
-    print "Create a competitors.txt file with the start list in format 'number,name,category'. See competitors.txt.example."
-    sys.exit(0)
+    if args.competitors:
+        controller.load_competitors(args.competitors)
 
-default_to_start_list = (controller.get_current_competition().startTime == None)
-last_scene = None
+    default_to_start_list = (controller.get_current_competition().startTime == None)
+    last_scene = None
 
-while True:
-    try:
-        Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene, default_to_start_list])
-        sys.exit(0)
-    except ResizeScreenError as e:
-        last_scene = e.scene
+    while True:
+        try:
+            Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene, default_to_start_list, controller])
+            sys.exit(0)
+        except ResizeScreenError as e:
+            last_scene = e.scene

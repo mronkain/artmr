@@ -2,3 +2,7 @@ results.db
 competitors.txt
 .vscode
 *.pyc
+/artmr.egg-info
+/build
+/dist
+__pycache__

@@ -1,5 +1,5 @@
 from asciimatics.widgets import Frame, MultiColumnListBox, ListBox, Layout, Divider, Text, \
-    Button, TextBox, Widget, Label
+    Button, TextBox, Widget, Label, FileBrowser
 from asciimatics.scene import Scene
 from asciimatics.screen import Screen
 from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
@@ -17,7 +17,7 @@ import sys
 import logging
 import csv
 
-VERSION = '0.5'
+VERSION = '0.9'
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -330,7 +330,7 @@ class StartListView(Frame):
 
         layout = Layout([100], fill_frame=True)
         self.add_layout(layout)
-        self._info_label = Label("Use Space / Present to confirm starting competitors. Go to Timing page to start the race.")
+        self._info_label = Label("Press F2 to load a starting list. Use Space / Present to confirm starting competitors. Go to Timing page to start the race.")
         layout.add_widget(self._list_view)
         layout.add_widget(self._info_label)
         layout.add_widget(Divider())
@@ -398,7 +398,8 @@ class StartListView(Frame):
                 self._starting()
             elif key == ord('m') or key == -2:
                 raise NextScene("Main Menu")
-
+            elif key == -3:
+                raise NextScene("LoadStartList")
             else:
                 super(StartListView, self).process_event(event)
         else:
@@ -435,7 +436,6 @@ class MenuListView(Frame):
         layout2 = Layout([1, 1, 1, 1])
         self.add_layout(layout2)
         layout2.add_widget(Button("OK", self._ok), 0)
-        layout2.add_widget(Button("Cancel", self._cancel), 3)
 
         self.fix()
 
@@ -522,3 +522,44 @@ class CategorySelectListView(Frame):
     @staticmethod
     def _cancel():
         raise NextScene("Main")
+
+class LoadStartListView(Frame):
+    def __init__(self, screen, controller):
+        super(LoadStartListView, self).__init__(screen,
+                                          screen.height * 2 // 3,
+                                          screen.width * 2 // 3,
+                                          hover_focus=True,
+                                          title="Load Start List",
+                                          reduce_cpu=True)
+
+        self._file_browser = FileBrowser(
+            Widget.FILL_FRAME,
+            ".",
+            name="fileBrowser",
+            on_select=self._ok)
+        self._ok_button = Button("Ok", self._ok)
+        self._cancel_button = Button("Cancel", self._cancel)
+        layout = Layout([100], fill_frame=True)
+        self.add_layout(layout)
+        layout.add_widget(Label("Start list should be in a UTF-8 text file with the format '[number],[competitor name],[competitor category]'"))
+        layout.add_widget(Divider())
+        layout.add_widget(self._file_browser)
+        layout2 = Layout([1, 1, 1, 1])
+        self.add_layout(layout2)
+        layout2.add_widget(Button("OK", self._ok), 0)
+        layout2.add_widget(Button("Cancel", self._cancel), 3)
+        self._controller = controller
+        self.fix()
+
+    def _ok(self):
+        self._controller.load_competitors(self._file_browser.value)
+        raise NextScene("StartList")
+
+    def process_event(self, event):
+        super(LoadStartListView, self).process_event(event)
+
+
+    @staticmethod
+    def _cancel():
+        raise NextScene("StartList")
+
