@@ -43,6 +43,13 @@ To start a new race, use `--reset` command line option. Previous data is destroy
 Alternatively, you can take a backup of the `~/.artmr/results_1.db` file and keep a safe copy
 of the results.
 
+## Screenshots
+
+![Start list](https://flexer.430am.fi/artmr/start_list.png)
+
+![splits](https://flexer.430am.fi/artmr/splits.png)
+
+
 ## TODO
 - splash screen
 - make a UI for multiple competitions, database already supports this
@@ -50,3 +57,4 @@ of the results.
 - change competitor model to be many-to-many via a Participation table
 - Python3 & Windows support
 - automatic data export/sync to other services
+
