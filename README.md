@@ -31,12 +31,11 @@ with Edit (`e`). Jump between start list and splits with Tab. Category filter ca
 accessed with F2. You can still add competitors while the race is running from the 
 start list. All competitors will have the same start time.
 
-Start time and splits are saved on disk so you can quit the tapplication and data
-is kept. Times are kept only in whole seconds, more accuracy does not make much
-sense in manual timing.
+Start time and splits are saved on disk so you can quit the application and data
+is kept. Times are rounded to whole seconds.
 
 You can export the results with `x`. This creates `[competition name]_[category]_[time].csv` file in
-the current directory in format `rank,elapsed time,difference,number,name,category`. Export will 
+the current directory in format `rank,elapsed time,difference,number,name,category,team`. Export will 
 contain the selected category.
 
 To start a new race, use `--reset` command line option. Previous data is destroyed.
