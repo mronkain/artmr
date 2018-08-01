@@ -7,14 +7,16 @@ class Competition(SQLObject):
     plannedStartTime = DateTimeCol(default=None)
     startTime = DateTimeCol(default=None)
     finishTime = DateTimeCol(default=None)
-    notes = StringCol(default=None)
+    notes = UnicodeCol(default=None)
     active = BoolCol(default=None)
     competitors = MultipleJoin('Competitor')
     splits = MultipleJoin('Split')
 
 class Competitor(SQLObject):
     name = UnicodeCol(default=None)
-    contact = StringCol(default=None)
+    contact = UnicodeCol(default=None)
+
+    team = UnicodeCol(default=None)
 
     number = IntCol(default=None)
     starting = BoolCol(default=False)

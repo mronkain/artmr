@@ -15,6 +15,9 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     classifiers=(
         "Programming Language :: Python :: 2.7",
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',        
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX",
         "Environment :: Console",
@@ -23,9 +26,10 @@ setuptools.setup(
     ),
     install_requires=[
         'asciimatics>=1.9',
-        'sqlobject'
+        'sqlobject',
+        'pandas'
     ],
-    python_requires='>=2.6, <3',
+    python_requires='>=2.6, !=3.0.*, !=3.1.*, !=3.2.*, <4',
     entry_points = {
         'console_scripts': ['artmr=artmr.artmr:main'],
     }

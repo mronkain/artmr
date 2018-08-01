@@ -5,22 +5,26 @@ from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
 
 from sqlobject import connectionForURI, sqlhub, SQLObjectNotFound, AND
 
-from .models import Competition, Competitor, Split, Category
-
-from .views import SplitListView, MenuListView, StartListView, CategorySelectListView, LoadStartListView
+from pandas import DataFrame, read_csv
+import pandas as pd
 
 import os.path
 import sys
 import logging
-import csv
 from os.path import expanduser
 import argparse
+
+from builtins import input
+
+from .models import Competition, Competitor, Split, Category
+
+from .views import SplitListView, MenuListView, StartListView, CategorySelectListView, LoadStartListView
 
 VERSION = '1.0-BETA'
 
 DESCRIPTION = 'artmr %ss' % VERSION
 
-SCHEMA_VERSION = '1'
+SCHEMA_VERSION = '2'
 DB_PATH = expanduser("~") + '/.artmr/'
 DB_FILE = 'results_%s.db' % SCHEMA_VERSION
 
@@ -58,12 +62,16 @@ class StateController(object):
             self._current_split = None
 
 
-    def add_competitor(self, competitor, number, category):
+    def add_competitor(self, competitor, number, category, team):
         try:
             Competitor.selectBy(name=competitor, number=int(number), competition=self._current_competition).getOne()
         except SQLObjectNotFound as e:
-            cat = self.find_or_create_category(category)
-            self._current_competitor = Competitor(name=competitor, number=int(number), competition=self._current_competition, category=cat)
+            if category:
+                cat = self.find_or_create_category(category)
+            else: 
+                cat = None
+
+            self._current_competitor = Competitor(name=competitor, number=int(number), competition=self._current_competition, category=cat, team=team)
 
     def add_split(self, time):
         s = Split(time=time, competition=self._current_competition, competitor=self._current_competitor)
@@ -117,22 +125,10 @@ class StateController(object):
         return Split.select(Competition.q.id==self._current_competition.id).orderBy('time')
     
     def load_competitors(self, filename):
-        def unicode_csv_reader(utf8_data, **kwargs):
-            # csv.py doesn't do Unicode; encode temporarily as UTF-8:
-            csv_reader = csv.reader(utf8_data, **kwargs)
-
-            for row in csv_reader:
-                yield [unicode(cell, 'utf-8') for cell in row]
-
-        tsvin = unicode_csv_reader(open(filename), delimiter=',')
-        for row in tsvin:
-            try:
-                if len(row) > 2:
-                    self.add_competitor(row[1], row[0], row[2])
-                elif len(row) > 1:
-                    self.add_competitor(row[1], row[0], "")
-            except:
-                pass
+        df = pd.read_csv('competitors.txt', header=None, names=['number', 'name', 'category', 'team'], encoding='utf8', na_filter=False)
+        #df.fillna("", inplace=True)
+        for index, row in df.iterrows():
+            self.add_competitor(row['name'], row['number'], row['category'], row['team'])
 
 
 def demo(screen, scene, default_to_start_list, controller):
@@ -162,7 +158,8 @@ def main():
     args = parser.parse_args()
 
     if args.reset:
-        confirm = raw_input("Delete existing competitions? All data will removed. [y/N] ")
+        confirm = input("Delete existing competitions? All data will removed. [y/N] ")
+        assert isinstance(name, str)
         if confirm == 'y' and os.path.exists(os.path.join(DB_PATH, DB_FILE)):
             os.remove(os.path.join(DB_PATH, DB_FILE))
             create_tables = True
@@ -180,7 +177,8 @@ def main():
     comps = controller.get_competitions()
 
     if comps.count() == 0:
-        name = raw_input("Enter your competition name: [blank] ") or "~~You really should have a name for these things~~"
+        name = input("Enter your competition name: [blank] ") or "~~You really should have a name for these things~~"
+        assert isinstance(name, str)
         controller.create_competition(name)
         new = True
 

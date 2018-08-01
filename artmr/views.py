@@ -10,7 +10,7 @@ from datetime import datetime
 
 from sqlobject import connectionForURI, sqlhub, SQLObjectNotFound, AND
 
-from models import Competition, Competitor, Split, Category
+from .models import Competition, Competitor, Split, Category
 
 import os.path
 import sys
@@ -37,11 +37,11 @@ class SplitListView(Frame):
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
-            ['5%', '12%', '12%', '10%', '35%', '16%'],
+            ['8%', '10%', '10%', '10%', '40%', '10%', '10%'],
             self._get_summary(),
             name="splits",
             on_change=self._on_pick,
-            titles=['Rank', 'Time', 'Diff', 'Number', 'Name', 'Category'])
+            titles=['Rank', 'Time', 'Diff', 'Number', 'Name', 'Category', 'Team'])
 
         self._start_list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
@@ -140,10 +140,12 @@ class SplitListView(Frame):
                 name = split.competitor.name
                 number = str(split.competitor.number)
                 cat = split.competitor.category.name
+                team = split.competitor.team
             else:
                 name = ""
                 number = ""
                 cat = ""
+                team = ""
 
             if leader == None:
                 leader = split.time
@@ -154,8 +156,9 @@ class SplitListView(Frame):
                     str(split.time.replace(microsecond=0) - leader.replace(microsecond=0)),
                     number,
                     name,
-                    cat
-                    ],
+                    cat,
+                    team
+                ],
                 split.id
             )
             i=i+1
@@ -274,11 +277,12 @@ class SplitListView(Frame):
                     name = split.competitor.name
                     number = str(split.competitor.number)
                     cat = split.competitor.category.name
+                    team = split.competitor.team
                 else:
                     name = ""
                     number = ""
                     cat = ""
-
+                    team = ""
                 if leader == None:
                     leader = split.time
 
@@ -288,7 +292,8 @@ class SplitListView(Frame):
                     str(split.time.replace(microsecond=0) - leader.replace(microsecond=0)),
                     number,
                     name.encode('utf-8'),
-                    cat
+                    cat.encode('utf-8'),
+                    team.encode('utf-8')
                 ])
                 rank += 1
     
@@ -317,11 +322,11 @@ class StartListView(Frame):
 
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
-            ['15%', '55%','15%', '15%'],
+            ['15%', '45%','10%', '15%', '15%'],
             self._get_summary(),
             name="start list",
             on_change=self._on_pick,
-            titles=['Number', 'Name', 'Category', 'Starting'])
+            titles=['Number', 'Name', 'Category', 'Team', 'Starting'])
         self._splits_button = Button("Timing", self._splits)
         self._edit_button = Button("Tgl Sort", self._toggle_sort)
         self._present_button = Button("Tgl Starting", self._starting)
@@ -356,7 +361,8 @@ class StartListView(Frame):
                 [   str(competitor.number),
                     competitor.name,
                     competitor.category.name,
-                    present
+                    competitor.team,
+                    present,
                 ],
                 competitor.id
             )
