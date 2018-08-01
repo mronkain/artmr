@@ -6,7 +6,7 @@ on asciimatics contact list demo and inspired by classic DOS utilities.
 
 ## Installation
 
-Install with `pip install artmr`. Currently works only with python 2.x on Linux and Mac.
+Install with `pip install artmr`. Currently tested only on Linux and Mac.
 Start the program with `artmr`. If you encounter errors about "Unknown locale: UTF-8, add 
 these lines to `~/.bash_profile`:
 ```
@@ -55,6 +55,6 @@ of the results.
 - make a UI for multiple competitions, database already supports this
 - support for lap timing
 - change competitor model to be many-to-many via a Participation table
-- Python3 & Windows support
+- Windows support
 - automatic data export/sync to other services
 
