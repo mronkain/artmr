@@ -17,7 +17,7 @@ import sys
 import logging
 import csv
 
-VERSION = '1.0-BETA'
+VERSION = '1.0-B2'
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -266,7 +266,7 @@ class SplitListView(Frame):
         with open(fname, 'wb') as f:
             writer = csv.writer(f)
 
-            writer.writerow(['rank', 'time elapsed', 'difference', 'number', 'name', 'category'])
+            writer.writerow(['rank', 'time elapsed', 'difference', 'number', 'name', 'category', 'team'])
             rank = 1
             leader = None
             for split in list:
@@ -547,7 +547,7 @@ class LoadStartListView(Frame):
         self._cancel_button = Button("Cancel", self._cancel)
         layout = Layout([100], fill_frame=True)
         self.add_layout(layout)
-        layout.add_widget(Label("Start list should be in a UTF-8 text file with the format '[number],[competitor name],[competitor category]'"))
+        layout.add_widget(Label("Start list should be in a UTF-8 text file with the format '[number],[competitor name],[category],[team name]"))
         layout.add_widget(Divider())
         layout.add_widget(self._file_browser)
         layout2 = Layout([1, 1, 1, 1])

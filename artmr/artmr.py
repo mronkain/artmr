@@ -20,7 +20,7 @@ from .models import Competition, Competitor, Split, Category
 
 from .views import SplitListView, MenuListView, StartListView, CategorySelectListView, LoadStartListView
 
-VERSION = '1.0-BETA'
+VERSION = '1.0-B2'
 
 DESCRIPTION = 'artmr %ss' % VERSION
 
@@ -154,7 +154,7 @@ def main():
 
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument("--reset", help="Reset current competition", action="store_true")
-    parser.add_argument("-c", "--competitors", help="Read competitors from file. File should be a csv with '[number],[competitor name],[competitor category]'. See homepage for an example file.")
+    parser.add_argument("-c", "--competitors", help="Read competitors from file. File should be a csv with '[number],[competitor name],[category],[team]'. See homepage for an example file.")
     args = parser.parse_args()
 
     if args.reset:
