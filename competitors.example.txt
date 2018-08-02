@@ -1,0 +1,16 @@
+1,Erkki Apina,M,Lopen Uupuneet
+2,Hans Munakeidas,l33t,Lopen Uupuneet
+3,John Smith,F,Lammin Ponnistus
+4,Marin Suopursu,F,Lemin Uima-Mummot
+5,Kuurankurvaus,X,Yormas
+6,Järnäs Joplin,M,Yormas
+7,Kristal Aria,X,Kinnusen perhe
+8,Marvertti,X,Kinnusen perhe
+9,Krislina,l33t,Juuh elikkäs
+10,Tuurin Helmi,M,Lopen Uupuneet
+11,A.K. Wiktor,F,
+12,Kuuraparta,F,
+13,Kairan Kukka,M,
+14,Kojamo,X,
+15,Hillamestari,l33t,
+16,Kairan Karski,l33t,

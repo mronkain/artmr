@@ -18,9 +18,10 @@ A (colour, UTF-8) terminal window of > 100 columns is recommended.
 
 ## Usage
 
-Load a start list with the command line option `-c`, format is `bib,name,category`,
+Load a start list with the command line option `-c`, format is `number,name,category,team`,
 one per line. You can also load a start list with F3 from the start list screen.
-Names and numbers should be unique and categories are optional but free-form.
+Names and numbers should be unique and categories are optional but free-form. See
+`competitors.example.txt` for an example file.
 
 Use the Start List view to mark actually starting competitors and then continue on
 to the Timing screen.
