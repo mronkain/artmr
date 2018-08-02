@@ -17,7 +17,7 @@ import sys
 import logging
 import csv
 
-VERSION = '1.0-B2'
+VERSION = '1.0-B3'
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -37,11 +37,11 @@ class SplitListView(Frame):
         # Create the form for displaying the list of competitors.
         self._list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
-            ['8%', '10%', '10%', '10%', '40%', '10%', '10%'],
+            ['8%', '10%', '10%', '8%', '35%', '10%', '19%'],
             self._get_summary(),
             name="splits",
             on_change=self._on_pick,
-            titles=['Rank', 'Time', 'Diff', 'Number', 'Name', 'Category', 'Team'])
+            titles=['Rank', 'Time', 'Diff', 'Number', 'Name', 'Cat.', 'Team'])
 
         self._start_list_view = MultiColumnListBox(
             Widget.FILL_FRAME,
@@ -326,7 +326,7 @@ class StartListView(Frame):
             self._get_summary(),
             name="start list",
             on_change=self._on_pick,
-            titles=['Number', 'Name', 'Category', 'Team', 'Starting'])
+            titles=['Number', 'Name', 'Cat.', 'Team', 'Starting'])
         self._splits_button = Button("Timing", self._splits)
         self._edit_button = Button("Tgl Sort", self._toggle_sort)
         self._present_button = Button("Tgl Starting", self._starting)

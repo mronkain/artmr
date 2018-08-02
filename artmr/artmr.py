@@ -20,7 +20,7 @@ from .models import Competition, Competitor, Split, Category
 
 from .views import SplitListView, MenuListView, StartListView, CategorySelectListView, LoadStartListView
 
-VERSION = '1.0-B2'
+VERSION = '1.0-B3'
 
 DESCRIPTION = 'artmr %ss' % VERSION
 
