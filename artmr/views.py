@@ -17,7 +17,7 @@ import sys
 import logging
 import csv
 
-VERSION = '1.0-B3'
+VERSION = '1.0'
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -298,7 +298,7 @@ class SplitListView(Frame):
                 rank += 1
     
         self._info_label.text = "Exported to '" + fname + "'."
-        self._info_label_reset = 20
+        self._info_label_reset = 10
 
     @property
     def frame_update_count(self):

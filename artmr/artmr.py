@@ -5,6 +5,11 @@ from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
 
 from sqlobject import connectionForURI, sqlhub, SQLObjectNotFound, AND
 
+
+import warnings
+warnings.filterwarnings("ignore", message="numpy.dtype size changed")
+warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
+
 from pandas import DataFrame, read_csv
 import pandas as pd
 
@@ -20,7 +25,7 @@ from .models import Competition, Competitor, Split, Category
 
 from .views import SplitListView, MenuListView, StartListView, CategorySelectListView, LoadStartListView
 
-VERSION = '1.0-B3'
+VERSION = '1.0'
 
 DESCRIPTION = 'artmr %ss' % VERSION
 
@@ -125,7 +130,7 @@ class StateController(object):
         return Split.select(Competition.q.id==self._current_competition.id).orderBy('time')
     
     def load_competitors(self, filename):
-        df = pd.read_csv('competitors.txt', header=None, names=['number', 'name', 'category', 'team'], encoding='utf8', na_filter=False)
+        df = pd.read_csv(filename, header=None, names=['number', 'name', 'category', 'team'], encoding='utf8', na_filter=False)
         #df.fillna("", inplace=True)
         for index, row in df.iterrows():
             self.add_competitor(row['name'], row['number'], row['category'], row['team'])
@@ -159,7 +164,7 @@ def main():
 
     if args.reset:
         confirm = input("Delete existing competitions? All data will removed. [y/N] ")
-        assert isinstance(name, str)
+        assert isinstance(confirm, str)
         if confirm == 'y' and os.path.exists(os.path.join(DB_PATH, DB_FILE)):
             os.remove(os.path.join(DB_PATH, DB_FILE))
             create_tables = True
@@ -180,11 +185,9 @@ def main():
         name = input("Enter your competition name: [blank] ") or "~~You really should have a name for these things~~"
         assert isinstance(name, str)
         controller.create_competition(name)
-        new = True
 
     else:
         controller.set_current_competition(None)
-        new = False
 
     if args.competitors:
         controller.load_competitors(args.competitors)
