@@ -17,7 +17,10 @@ import sys
 import logging
 import csv
 
-VERSION = '1.0'
+from pandas import DataFrame
+import pandas as pd
+
+VERSION = '1.1'
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -263,40 +266,41 @@ class SplitListView(Frame):
         keepcharacters = (' ','.','_', '-')
         fname = "".join(c for c in fname if c.isalnum() or c in keepcharacters).rstrip()
 
-        with open(fname, 'wb') as f:
-            writer = csv.writer(f)
+        rank = 1
+        leader = None
+        rows = []
+        for split in list:
+            if split.competitor:
+                if self._controller.get_current_category() != None and split.competitor.category != self._controller.get_current_category():
+                    continue
 
-            writer.writerow(['rank', 'time elapsed', 'difference', 'number', 'name', 'category', 'team'])
-            rank = 1
-            leader = None
-            for split in list:
-                if split.competitor:
-                    if self._controller.get_current_category() != None and split.competitor.category != self._controller.get_current_category():
-                        continue
+                name = split.competitor.name
+                number = str(split.competitor.number)
+                cat = split.competitor.category.name
+                team = split.competitor.team
+            else:
+                name = ""
+                number = ""
+                cat = ""
+                team = ""
+            if leader == None:
+                leader = split.time
 
-                    name = split.competitor.name
-                    number = str(split.competitor.number)
-                    cat = split.competitor.category.name
-                    team = split.competitor.team
-                else:
-                    name = ""
-                    number = ""
-                    cat = ""
-                    team = ""
-                if leader == None:
-                    leader = split.time
+            rows.append({
+                '1 rank': rank,
+                '2 time elapsed': str(split.time.replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0)),
+                '3 difference': str(split.time.replace(microsecond=0) - leader.replace(microsecond=0)),
+                '4 name': name,
+                '5 number': number,
+                '6 category': cat,
+                '7 team': team
+            })
 
-                writer.writerow([
-                    rank,
-                    str(split.time.replace(microsecond=0) - self._controller.get_current_competition().startTime.replace(microsecond=0)),
-                    str(split.time.replace(microsecond=0) - leader.replace(microsecond=0)),
-                    number,
-                    name.encode('utf-8'),
-                    cat.encode('utf-8'),
-                    team.encode('utf-8')
-                ])
-                rank += 1
-    
+            rank += 1
+
+        df = pd.DataFrame(rows)
+        df.to_csv(path_or_buf=fname, encoding='utf-8', index=False)
+
         self._info_label.text = "Exported to '" + fname + "'."
         self._info_label_reset = 10
 
