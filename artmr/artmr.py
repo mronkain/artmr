@@ -16,6 +16,7 @@ import pandas as pd
 import os.path
 import sys
 import logging
+import platform
 from os.path import expanduser
 import argparse
 
@@ -25,12 +26,12 @@ from .models import Competition, Competitor, Split, Category
 
 from .views import SplitListView, MenuListView, StartListView, CategorySelectListView, LoadStartListView
 
-VERSION = '1.0'
+VERSION = '1.1'
 
 DESCRIPTION = 'artmr %ss' % VERSION
 
 SCHEMA_VERSION = '2'
-DB_PATH = expanduser("~") + '/.artmr/'
+DB_PATH = os.path.join(expanduser("~"), '.artmr')
 DB_FILE = 'results_%s.db' % SCHEMA_VERSION
 
 # global state singleton to keep track of what is being shown / edited
@@ -169,7 +170,12 @@ def main():
             os.remove(os.path.join(DB_PATH, DB_FILE))
             create_tables = True
 
-    sqlhub.processConnection = connectionForURI("sqlite://" + os.path.join(DB_PATH, DB_FILE))
+    if platform.system() == "Windows":
+        uri = "sqlite:/" + os.path.join(DB_PATH, DB_FILE)
+    else:
+        uri = "sqlite:" + os.path.join(DB_PATH, DB_FILE)
+
+    sqlhub.processConnection = connectionForURI(uri)
 
     if create_tables:
         Competition.createTable()
