@@ -6,7 +6,7 @@ on asciimatics contact list demo and inspired by classic DOS utilities.
 
 ## Installation
 
-Install with `pip install artmr`. Currently tested only on Linux and Mac.
+Install with `pip install artmr`. Should work on Linux, Mac or Windows.
 Start the program with `artmr`. If you encounter errors about "Unknown locale: UTF-8, add 
 these lines to `~/.bash_profile`:
 ```
@@ -26,7 +26,7 @@ Names and numbers should be unique and categories are optional but free-form. Se
 Use the Start List view to mark actually starting competitors and then continue on
 to the Timing screen.
 
-Start the race with the Start (`space` or `s`) button from the Timing screen
+Start the race with the Start (`space` or `s`) button from the Timing sdcreen
 and add a new split/finish time with Split (`space` or `s`). Add a competitor bib number
 with Edit (`e`). Jump between start list and splits with Tab. Category filter can be
 accessed with F2. You can still add competitors while the race is running from the 
@@ -55,6 +55,5 @@ of the results.
 - make a UI for multiple competitions, database already supports this
 - support for lap timing
 - change competitor model to be many-to-many via a Participation table
-- Windows support
 - automatic data export/sync to other services
 
