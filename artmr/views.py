@@ -398,6 +398,12 @@ class StartListView(Frame):
 
     def _starting(self):
         self._controller.get_current_competitor().starting = not self._controller.get_current_competitor().starting
+        if self._controller.get_current_competitor().starting: 
+            self._info_label_reset = None
+            self._info_label.text = "Waiting for token..."
+            self._controller.write_current_competitor()
+            self._waiting_to_write = True
+
         self._reload_list()
         
         if self._controller.get_current_competitor().starting:
