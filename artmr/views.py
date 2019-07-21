@@ -20,7 +20,7 @@ import csv
 from pandas import DataFrame
 import pandas as pd
 
-VERSION = '1.1'
+VERSION = '2.0 ALPHA'
 
 class SplitListView(Frame):
     def __init__(self, screen, controller):
@@ -135,6 +135,7 @@ class SplitListView(Frame):
         rows = []
         i=1
         leader = None
+        
         for split in self._controller.get_splits():
             if split.competitor:
                 if self._controller.get_current_category() != None and split.competitor.category != self._controller.get_current_category():
@@ -248,7 +249,8 @@ class SplitListView(Frame):
                 self._info_label_reset = None
             elif self._info_label_reset != None:
                 self._info_label_reset = self._info_label_reset -1
-
+            
+        self._reload_list()
         super(SplitListView, self)._update(frame_no)
 
     def _match_split(self):
@@ -300,7 +302,6 @@ class SplitListView(Frame):
 
         df = pd.DataFrame(rows)
         df.to_csv(path_or_buf=fname, encoding='utf-8', index=False)
-
         self._info_label.text = "Exported to '" + fname + "'."
         self._info_label_reset = 10
 
@@ -336,10 +337,13 @@ class StartListView(Frame):
         self._present_button = Button("Tgl Starting", self._starting)
         self._quit_button = Button("Quit", self._quit)
         self._start_time = None
+        self._waiting_to_write = False
+        self._info_label_reset = 0
+        self._info_label_text = "Press F2 to load a starting list. Use Space / Present to confirm starting competitors. Go to Timing page to start the race."
 
         layout = Layout([100], fill_frame=True)
         self.add_layout(layout)
-        self._info_label = Label("Press F2 to load a starting list. Use Space / Present to confirm starting competitors. Go to Timing page to start the race.")
+        self._info_label = Label(self._info_label_text)
         layout.add_widget(self._list_view)
         layout.add_widget(self._info_label)
         layout.add_widget(Divider())
@@ -395,7 +399,11 @@ class StartListView(Frame):
     def _starting(self):
         self._controller.get_current_competitor().starting = not self._controller.get_current_competitor().starting
         self._reload_list()
-
+        
+        if self._controller.get_current_competitor().starting:
+            self._controller.write_current_competitor()
+            raise NextScene("TagWriter")
+        
     def _splits(self):
         raise NextScene("Main")
 
@@ -408,6 +416,9 @@ class StartListView(Frame):
                 self._starting()
             elif key == ord('m') or key == -2:
                 raise NextScene("Main Menu")
+            elif key == ord('w') or key == -4:
+                self._controller.write_current_competitor()
+                raise NextScene("TagWriter")
             elif key == -3:
                 raise NextScene("LoadStartList")
             else:
@@ -415,6 +426,16 @@ class StartListView(Frame):
         else:
             super(StartListView, self).process_event(event)
 
+    def _update(self, frame_no):
+        if frame_no - self._last_frame >= self.frame_update_count or self._last_frame == 0:
+            if self._info_label_reset == 0:
+                self._info_label.text = self._info_label_text
+                self._info_label_reset = None
+                
+            elif self._info_label_reset != None:
+                self._info_label_reset = self._info_label_reset -1
+            
+        super(StartListView, self)._update(frame_no)
 
     @property
     def frame_update_count(self):
@@ -572,4 +593,45 @@ class LoadStartListView(Frame):
     @staticmethod
     def _cancel():
         raise NextScene("StartList")
+
+class TagWriterView(Frame):
+    def __init__(self, screen, controller):
+        super(TagWriterView, self).__init__(screen,
+                                          screen.height * 2 // 3,
+                                          screen.width * 2 // 3,
+                                          hover_focus=True,
+                                          title="Wire Competitor tag",
+                                          reduce_cpu=True)
+
+        self._ok_button = Button("Ok", self._ok)
+        layout = Layout([100], fill_frame=True)
+        self.add_layout(layout)
+        self._info_label = Label("Bring in the tag to write")
+        layout.add_widget(self._info_label)
+        layout2 = Layout([1, 1, 1, 1])
+        self.add_layout(layout2)
+        layout2.add_widget(Button("OK", self._ok), 0)
+        self._controller = controller
+        self.fix()
+
+    def _ok(self):
+        self._controller.clear_queue()
+        raise NextScene("StartList")
+
+    def _update(self, frame_no):
+        if self._controller.get_queue().empty():
+            if self._controller.get_last_tag() != None:
+                self._info_label.text = "Write ok: " + self._controller.get_last_tag()
+            else:
+                self._info_label.text = "Write ok"
+        else:
+            self._info_label.text = "Bring in the tag to write: " + self._controller.get_current_competitor().name + " (" + \
+                str(self._controller.get_current_competitor().number) + ")"
+            
+        super(TagWriterView, self)._update(frame_no)
+
+    @property
+    def frame_update_count(self):
+        return 40
+
 

@@ -5,13 +5,13 @@ from asciimatics.exceptions import ResizeScreenError, NextScene, StopApplication
 
 from sqlobject import connectionForURI, sqlhub, SQLObjectNotFound, AND
 
-
 import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
 
 from pandas import DataFrame, read_csv
 import pandas as pd
+import RPi.GPIO as GPIO
 
 import os.path
 import sys
@@ -19,14 +19,18 @@ import logging
 import platform
 from os.path import expanduser
 import argparse
+import threading
 
 from builtins import input
+from Queue import Queue
 
 from .models import Competition, Competitor, Split, Category
 
-from .views import SplitListView, MenuListView, StartListView, CategorySelectListView, LoadStartListView
+from .views import SplitListView, MenuListView, StartListView, CategorySelectListView, LoadStartListView, TagWriterView
 
-VERSION = '1.1'
+from .rfid import rfid_handler
+
+VERSION = '2.0 ALPHA'
 
 DESCRIPTION = 'artmr %ss' % VERSION
 
@@ -41,6 +45,8 @@ class StateController(object):
         self._current_competitor = None
         self._current_split = None
         self._current_category = None
+        self._last_read_number = None
+        self._queue = Queue(maxsize=0)
 
     def get_current_competition(self):
         return self._current_competition
@@ -83,6 +89,15 @@ class StateController(object):
         s = Split(time=time, competition=self._current_competition, competitor=self._current_competitor)
         return s.id
 
+    def add_split_competitor(self, time, competitor):
+        if self._current_competition.startTime != None:
+            c = Competitor.selectBy(number=int(competitor)).getOne()
+            s = Split(time=time, competition=self._current_competition, competitor=c)
+            self.beep()
+            return s.id
+        else:
+            return None
+
     def change_number(self, split_id):
         pass
 
@@ -112,7 +127,6 @@ class StateController(object):
         else:
             self._current_category = None
 
-
     def find_or_create_category(self, category):
         try:
             cat = Category.selectBy(name=category).getOne()
@@ -135,7 +149,29 @@ class StateController(object):
         #df.fillna("", inplace=True)
         for index, row in df.iterrows():
             self.add_competitor(row['name'], row['number'], row['category'], row['team'])
+    
+    def write_current_competitor(self):
+        self.write_tag(self._current_competitor.number)
 
+    def write_tag(self, number):
+        self._last_read_number = None
+        self._queue.put(number)
+
+    def read_tag(self, number):
+        self._last_read_number = number
+
+    def get_last_tag(self):
+        return self._last_read_number
+ 
+    def get_queue(self):
+        return self._queue
+    
+    def clear_queue(self):
+        with self._queue.mutex:
+            self._queue.queue.clear()
+
+    def beep(self):
+        os.system("aplay -q beep.wav")
 
 def demo(screen, scene, default_to_start_list, controller):
     scenes = [
@@ -143,14 +179,20 @@ def demo(screen, scene, default_to_start_list, controller):
         Scene([MenuListView(screen, controller)], -1, name="Main Menu"),
         Scene([StartListView(screen, controller)], -1, name="StartList"),
         Scene([CategorySelectListView(screen, controller)], -1, name="CategorySelect"),
-        Scene([LoadStartListView(screen, controller)], -1, name="LoadStartList")
+        Scene([LoadStartListView(screen, controller)], -1, name="LoadStartList"),
+        Scene([TagWriterView(screen, controller)], -1, name="TagWriter")
     ]
 
     if scene == None and default_to_start_list:
         scene = scenes[2]
-    
-    screen.play(scenes, stop_on_resize=True, start_scene=scene)
 
+    rfid_thread = threading.Thread(target=rfid_handler, args=(controller, screen,))
+    rfid_thread.daemon = True
+    rfid_thread.start()
+
+    screen.play(scenes, stop_on_resize=True, start_scene=scene)
+    
+    rfid_thread.do_run = False
 
 def main():
     if not os.path.isdir(DB_PATH):
@@ -200,10 +242,10 @@ def main():
 
     default_to_start_list = (controller.get_current_competition().startTime == None)
     last_scene = None
-
     while True:
         try:
             Screen.wrapper(demo, catch_interrupt=False, arguments=[last_scene, default_to_start_list, controller])
+            GPIO.cleanup()
             sys.exit(0)
         except ResizeScreenError as e:
             last_scene = e.scene
